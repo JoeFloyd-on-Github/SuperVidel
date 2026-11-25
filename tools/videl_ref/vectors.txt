@@ -1,0 +1,156 @@
+# Register-write vectors for the SV-Lite Videl core.  Values are test inputs,
+# not necessarily real TOS settings, except where noted.
+
+# 640x400 true colour on RGB: values from MiKRO's "Videl in practice" (S031).
+test tc640x400_rgb rgb
+w ff8201 b 03
+w ff8203 b 80
+w ff820d b 00
+w ff8210 w 0280
+w ff8266 w 0100
+w ff8282 w 01fe
+w ff8284 w 0199
+w ff8286 w 0050
+w ff8288 w 0071
+w ff828a w 0122
+w ff82a2 w 0270
+w ff82a4 w 0265
+w ff82a6 w 002f
+w ff82a8 w 007e
+w ff82aa w 020e
+w ff82c0 w 0181
+w ff82c2 w 0006
+w ff9800 l 11223344
+end
+
+# ST low via the ST shifter on VGA, with STE palette writes (word and byte).
+test stlow_vga vga
+w ff8282 w 00c6
+w ff8284 w 008d
+w ff8286 w 0015
+w ff8288 w 02ac
+w ff828a w 0091
+w ff82a4 w 03af
+w ff82a6 w 008f
+w ff82a8 w 008f
+w ff82aa w 03af
+w ff82c0 w 0186
+w ff8260 b 00
+w ff8240 w 0fff
+w ff8242 w 0f00
+w ff8244 b 07
+w ff8247 b 55
+w ff8248 l 08ff0123
+w ff825e w 0a5a
+end
+
+# ST medium on RGB.
+test stmed_rgb rgb
+w ff8282 w 00fe
+w ff8284 w 00cb
+w ff8286 w 0027
+w ff8288 w 002e
+w ff828a w 008f
+w ff82a4 w 0265
+w ff82a6 w 002f
+w ff82a8 w 0057
+w ff82aa w 0237
+w ff8260 b 01
+w ff8240 w 0777
+w ff8242 w 0700
+w ff8244 w 0070
+w ff8246 w 0007
+end
+
+# ST high on a mono monitor (no borders).
+test sthigh_mono mono
+w ff8260 b 02
+w ff82a8 w 0043
+w ff82aa w 0363
+end
+
+# 256-colour, 640x480 on VGA, HDB bit 9 set, Falcon palette as longs.
+test p8_640x480_vga vga
+w ff8201 b 12
+w ff8203 b 34
+w ff820d b 56
+w ff8210 w 0140
+w ff8266 w 0010
+w ff8282 w 00c6
+w ff8284 w 008d
+w ff8286 w 0015
+w ff8288 w 02ac
+w ff828a w 0091
+w ff82a2 w 0419
+w ff82a4 w 03af
+w ff82a6 w 008f
+w ff82a8 w 008f
+w ff82aa w 03af
+w ff82c0 w 0186
+w ff82c2 w 0008
+w ff9800 l ffffffff
+w ff9804 l 80400020
+w ff9808 l 0300fc03
+w ff983c l fcfc00fc
+end
+
+# Falcon 16-colour (SPSHIFT = 0), line doubling, line offset and h-scroll;
+# a write to the base low byte followed by hi/mid clears low.
+test p4_320x240_vga vga
+w ff820d b 78
+w ff8201 b 01
+w ff8203 b 02
+w ff8210 w 0050
+w ff820e w 0004
+w ff8265 b 05
+w ff8266 w 0000
+w ff8282 w 00c6
+w ff8284 w 008d
+w ff8286 w 0015
+w ff8288 w 02a3
+w ff828a w 007c
+w ff82a4 w 03af
+w ff82a6 w 008f
+w ff82a8 w 008f
+w ff82aa w 03af
+w ff82c0 w 0186
+w ff82c2 w 0005
+w ff9800 l 00000000
+w ff9804 l fc0000fc
+end
+
+# Falcon 2-colour on RGB, interlaced (VMD bit 1 = 0).
+test p1_640x400_rgb_il rgb
+w ff8210 w 0028
+w ff8266 w 0400
+w ff8282 w 01fe
+w ff8284 w 0199
+w ff8286 w 0050
+w ff8288 w 0071
+w ff828a w 0122
+w ff82a4 w 0265
+w ff82a6 w 002f
+w ff82a8 w 007e
+w ff82aa w 020e
+w ff82c2 w 0004
+end
+
+# ST shifter first, then SPSHIFT: Falcon palette takes over again.
+test st_then_falcon tv
+w ff8260 b 00
+w ff8266 w 0010
+w ff8210 w 00a0
+w ff82c2 w 0000
+w ff82a6 w 0030
+w ff82a4 w 0230
+w ff82a8 w 0040
+w ff82aa w 0220
+end
+
+# VDE < VDB: Hatari keeps YSize from before; the model starts from 0.
+test vde_lt_vdb vga
+w ff8266 w 0100
+w ff8210 w 0140
+w ff82a8 w 0200
+w ff82aa w 0100
+end

@@ -126,7 +126,11 @@ Hatari's comments mark these as approximate or unknown [S035]. They are equally 
 2. **Register traces:** log Videl writes from Hatari (it has a `TRACE_VIDEL` trace class [S035]) while it runs TOS, games and demos, and replay them into the testbench.
 3. **On hardware:** use a logic-analyser port (the spare FPGA pins in [sv-lite.md](sv-lite.md#44-io-count)) to capture the original SV and SV-Lite side by side.
 
-## 7. Licence
+## 7. Implementation
+
+A first VHDL core following this page is in [`hdl/videl/`](../../hdl/videl/README.md). It passes the golden-model comparison against Hatari's unmodified `videl.c` from step 1 above [S035], and it is simulation-only so far.
+
+## 8. Licence
 
 Hatari is GPL-2.0-or-later. [S035] Using it as a test reference doesn't affect SV-Lite's licence. Translating its logic into HDL probably makes the result a GPL derivative **(unverified; not legal advice)**. Either release the SV-Lite gateware under the GPL, or implement the decode from the hardware documentation (e.g. S031, S032) and use Hatari only to test against.
 

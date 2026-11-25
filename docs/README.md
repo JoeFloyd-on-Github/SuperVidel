@@ -5,6 +5,8 @@
 - [Programming](programming/)
 - [CT60 / CT63 host accelerator](ct60/)
 - [Design study: low-cost SV-compatible board](design/sv-lite.md)
+  - [Videl backwards compatibility](design/videl-compat.md)
+  - [Videl core: methodology, test harness and traps](design/videl-core-methodology.md)
 
 ## Conventions
 
