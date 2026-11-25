@@ -62,6 +62,7 @@ S010 shows separate "Motherboard CLK connector" and "Expansion/SVEthLANa FPC" bl
 - The v2 layout drawing in S012 (p. 8) is labelled "SuperVidel v2".
 - Register `$80010000` bit 18 reads 1 on revision 1 hardware and 0 on revision 2. [S011]
 - The blue prototype photographed in January 2009 [S003] is earlier than both; the production boards were orange [S001].
+- A 2022 re-layout ("SuperVidel v2022") and the Zynq-based SV3 are covered in [revisions.md](revisions.md).
 
 ## FPGA design (VHDL)
 

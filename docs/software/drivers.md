@@ -88,6 +88,10 @@ These were found with `strings`; their purpose is inferred, not documented.
 - The text `SupV` also appears next to a trap call, which suggests a **`SupV` cookie**. **(unverified)**
 - `MagX`: the driver checks for MagiC.
 
+### CT60 TOS compatibility warning
+
+In September 2025 MiKRO wrote that the SV "has a serious issue which is probably never going to be fixed" without the VHDL source. He said it works with CT60 TOS 1.03c "just by chance" and doesn't work with 1.05. [S015] The issue itself isn't described. CT60 TOS 3.00 (2026), which has the SV XBIOS built in, carries fixes from 1.03f [S013]. Whether 3.00 avoids the problem, and what the problem is, are open questions.
+
 A commenter on S013 said CT60 TOS 1.05 would be rebased and later merged with 3.00. That was a stated plan, not a release. [S013]
 
 S013 says the SuperBlitter is used for VDI blitting. Text rendering doesn't use it yet. [S013]
@@ -148,6 +152,7 @@ These are MiKRO's figures from the S013 comment thread, on a CT60/CT63 system:
 - The Linux 7.3 SVEthLANa and framebuffer code.
 - Firmware XSVF files and changelogs (FW009, FW010, any later versions).
 - The OpenCores Ethernet MAC documents (`eth_speci.pdf`, `eth_design_document.pdf`).
+- The atari-forum threads linked from S015 (p=332511, 332633, 466225 on SV3, 466543).
 - The SVEthLANa installation manual and the CT60 extender-board manual, both mentioned in S012.
 
 [S001]: ../../sources/INDEX.md
@@ -156,3 +161,4 @@ These are MiKRO's figures from the S013 comment thread, on a CT60/CT63 system:
 [S012]: ../../sources/INDEX.md
 [S013]: ../../sources/INDEX.md
 [S014]: ../../sources/INDEX.md
+[S015]: ../../sources/INDEX.md
