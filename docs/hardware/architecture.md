@@ -39,7 +39,7 @@
 
 Two separate JTAG paths reach the PROMs [S010]:
 
-- **HW_JTAG:** from the 14-pin JTAG connector through both PROMs, for a Xilinx Platform USB cable. This is the recovery route when an update fails. [S012]
+- **HW_JTAG:** from the 14-pin JTAG connector (JP2) through both PROMs, for a Xilinx Platform USB cable. This is the recovery route when an update fails; see [../software/drivers.md](../software/drivers.md#recovery-over-jtag-xilinx-impact). [S012][S018]
 - **SW_JTAG:** driven by the FPGA itself, and controlled by the CPU through the JTAG control register at `$80010054` ([registers.md](registers.md)). This is what allows firmware updates from the Atari with no cable.
 
 ### Connectors and jumpers
@@ -51,7 +51,7 @@ Two separate JTAG paths reach the PROMs [S010]:
 | JP7 | Motherboard clock input, a right-angle 6-pin header (6-wire flat cable). The manual describes connecting only the VGA (25.175 MHz) clock: wire 4 to the clock and wire 3 to ground, counting from the red wire as #1. The motherboard solder point is next to the 25.175 MHz oscillator near the Videl | [S012] |
 | JP4 | Flat-cable connector used with the SVEthLANa when an EtherNat is also stacked on the SV | [S012] |
 | Expansion / SVEthLANa FPC | 45-pin FPC: 18 data lines, 3.3 V, GND | [S010] |
-| 14-pin JTAG | Xilinx Platform cable | [S010] |
+| JP2 | 14-pin JTAG (2 mm pitch, keyed), near the DVI connector, for the Xilinx Platform Cable USB. It's on the HW_JTAG chain through both PROMs | [S010][S018] |
 
 S010 shows separate "Motherboard CLK connector" and "Expansion/SVEthLANa FPC" blocks; S012 names JP7 and JP4. That JP7 is the motherboard CLK connector is clear from S012. Whether JP4 is the 45-pin FPC itself or a separate header is **not yet confirmed**.
 
@@ -98,3 +98,4 @@ Points worth noting for developers:
 [S010]: ../../sources/INDEX.md
 [S011]: ../../sources/INDEX.md
 [S012]: ../../sources/INDEX.md
+[S018]: ../../sources/INDEX.md

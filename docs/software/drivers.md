@@ -101,7 +101,36 @@ S013 says the SuperBlitter is used for VDI blitting. Text rendering doesn't use 
 - Firmware is shipped as **XSVF** files. `SV-JTAG.TTP <path to .xsvf>` erases and programs the two Xilinx configuration PROMs. It must run in **68060 mode**, was tested mostly under MiNT, and should also work under TOS and MagiC. It prints a percentage; there's a pause at 47% while the second PROM is erased. [S010][S012]
 - **Don't cut power during an update.** A half-programmed SV will be dead until it's reprogrammed with a Xilinx Platform USB cable and the Xilinx WebPACK software. [S012]
 - The new firmware takes effect after a power cycle. [S001]
-- Known firmware versions: **FW009** and **FW010**. FW010 changed the SVEthLANa driver model to send packets by DMA. [S013] Release dates and changelogs are still to be found.
+- **Later updater:** by 2013, Nature's firmware note refers to an Atari updater called **`SVUPDxxx.APP`**, apparently named after the firmware version, in place of `SV-JTAG.TTP`. [S018] A 2022 post mentions an "FW11 update app". [S018]
+
+### Known firmware versions
+
+Firmware versions appear in the sources in two forms: three-digit ("v005", "FW010") and short ("v7", "FW11").
+
+| Version | Date | Notes | Ref |
+|---------|------|-------|-----|
+| v005 | 2013-08-27 | Released as **MCS** files for Xilinx Impact, for recovering a bricked SV | [S018] |
+| v7 | — | Mentioned as a version a user was running in 2022 | [S018] |
+| FW009 | — | SVEthLANa driver without transmit DMA | [S013] |
+| FW010 (v10) | — | SVEthLANa transmit DMA (with hardware bugs); mentioned in a "FW 010 → crash" thread | [S013][S018] |
+| FW11 | — | Referenced only as "FW11 update app" (forum post p=369936, not yet fetched) | [S018] |
+
+Release dates, changelogs and the latest version are still to be found.
+
+The installed firmware revision is shown on the Atari, for example by the updater or the drivers. After a bad JTAG flash, one user saw it reported as "000". [S018] Which register holds the revision isn't in S011's 2012 register map.
+
+### Recovery over JTAG (Xilinx Impact)
+
+Use this when the Atari-side updater can't be used, i.e. the SV is "bricked". It is pieced together from Nature's v005 release note (as quoted in S018) and users' reports in S018.
+
+1. **Hardware:** a Xilinx Platform Cable USB and its **2 mm-pitch 14-pin flat cable**, connected to **JP2 near the DVI connector**. Mind the key on the cable, and don't press on the chips on the underside of the SV while plugging it in. [S018]
+2. **Software:** Xilinx ISE 14.7 iMPACT. Nature mentions WinXP or later, or Ubuntu. MiKRO recommends Arch Linux with the AUR packages `xilinx-ise` and `xilinx-usb-drivers`, which also need a Xilinx licence and `Xilinx_ISE_DS_Lin_14.7_1015_1.tar` from Xilinx. [S018]
+3. **Power:** the cable needs the target's reference voltage, so the SV must be powered. MiKRO (2023) left the SV in the Falcon with the machine running throughout, and others flashed in 68060 mode. An earlier memory of flashing with the SV off the CT60 wasn't confirmed. [S018]
+4. **File order matters.** iMPACT shows the two PROMs in the JTAG chain: put **`*_1.mcs` on the left device and `*_0.mcs` on the right**. Swapping them gives a board that reports firmware 000. [S018]
+5. iMPACT warns that the MCS files aren't configuration files. Two users ignored the warning and the flash worked. [S018]
+6. Erase, blank-check, program and verify each PROM, then power-cycle. [S018]
+
+Nature's note also refers to "the instructions manual for updating the ABE+SDR" (the CT60's CPLDs) as the base procedure. A copy of that guide is linked from S018 (exxoshost CT60 flash page, not yet fetched).
 
 ## SVEthLANa networking
 
@@ -152,6 +181,7 @@ These are MiKRO's figures from the S013 comment thread, on a CT60/CT63 system:
 - The Linux 7.3 SVEthLANa and framebuffer code.
 - Firmware XSVF files and changelogs (FW009, FW010, any later versions).
 - The OpenCores Ethernet MAC documents (`eth_speci.pdf`, `eth_design_document.pdf`).
+- Nature's firmware release page (v005 and later notes, MCS/XSVF files, `SVUPDxxx.APP`), and the atari-forum posts linked from S018 (p=370890, 369936, 297790).
 - The atari-forum threads linked from S015 (p=332511, 332633, 466225 on SV3, 466543).
 - The SVEthLANa installation manual and the CT60 extender-board manual, both mentioned in S012.
 
@@ -162,3 +192,4 @@ These are MiKRO's figures from the S013 comment thread, on a CT60/CT63 system:
 [S013]: ../../sources/INDEX.md
 [S014]: ../../sources/INDEX.md
 [S015]: ../../sources/INDEX.md
+[S018]: ../../sources/INDEX.md
