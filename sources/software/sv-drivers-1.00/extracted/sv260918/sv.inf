@@ -1,0 +1,24 @@
+; SuperVidel Configuration File
+;  - case sensitive; use lower case (it's not a bug, it's a feature)
+;  - [FLASH] means that ROM SV_XBIOS reads those from the flash rather
+;    than from this file
+
+[VDI]              ; Settings which affect (N)VDI behavior
+default    = $401c ; Specifies a default resolution if none is specified by the AES
+;forced    = $4018 ; Overrides the resolution specified by the AES
+dual       = off   ;
+vdi_bps8c  = false ; [FLASH] allow 8-bit chunky in TOS VDI
+vdi_bps32  = false ; [FLASH] allow 32-bit TC in TOS VDI
+restrict_x = 0 	   ; limit VDI screen width (0 disables this feature)
+restrict_y = 0     ; limit VDI screen height (0 disables this feature)
+
+[XBIOS]            ; [FLASH]
+bootmode   = $401a ; Resolution used during bootup.
+primary    = vga   ; Primary display output.
+clone      = true  ; If true, screen is sent both to primary and secondary output.
+
+[HACKS]            ; [FLASH]
+rezdialog  = true  ; Enables extended desktop video dialog.
+fast_videl = true  ; Accellerate VIDEL resolutions in GEM.
+kill_videl = false ; Turns the VIDEL off in SV-resolutions (do not use)
+pmmu_boost = true  ; Higher CPU<>VRAM bandwidth

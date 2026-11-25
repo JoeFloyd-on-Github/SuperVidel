@@ -30,6 +30,64 @@ In spring 2019 PeP gave MiKRO access to his `sv_drivers` git repository. It was 
 | **FreeMiNT SVEthLANa driver** | New network driver, ported from the Linux driver, in FreeMiNT snapshots | [S013] |
 | **Linux 7.3** | SVEthLANa support (mostly configuration of the existing OpenCores MAC driver) plus framebuffer fixes, sent upstream | [S013] |
 
+### SuperVidel Drivers 1.00 package [S014]
+
+Released 2026-09-18 by MiKRO. It's mainly a bug-fix release of PeP's drivers.
+
+| File | Size | Notes |
+|------|------|-------|
+| `auto/sv_xbios.prg` | 101,910 | Banner "SuperVidel XBIOS Extensions"; reports a revision and build date. Says "Hardware not found" when there's no SV |
+| `gemsys/svscreen.sys` | 6,888 | NVDI screen driver. Reads `SV.INF` and loads the colour-depth driver it needs: NVDI's own `NVDIDRV1/2/4/8/H.SYS` for bitplane and Falcon high-colour modes, or `SV_BPS8C/16/32.SYS`. It also names an `SV_BPS24.SYS`, which isn't in the package |
+| `gemsys/sv_bps8c.sys` | 6,571 | "SuperVidel 256 colours (Packed)", i.e. 8-bit chunky |
+| `gemsys/sv_bps16.sys` | 6,928 | "SuperVidel 32768 colours" |
+| `gemsys/sv_bps32.sys` | 7,642 | "SuperVidel 16M colours" |
+| `assign.sys` | 677 | Example: `SVSCREEN.SYS` for devices 01–05 and 07, with Monaco fonts |
+| `sv.inf` | 1,188 | Configuration file (see below) |
+| `readme.txt` | 1,215 | Changelog |
+
+All the binaries are standard GEMDOS executables (they start with `$601A`). [S014]
+
+**Changes in 1.00** (from `readme.txt`) [S014]:
+
+- `Vsync()` now really waits for vertical sync. However, the `$70` VBL vector is still driven by the motherboard Videl's VBL, not by the SV.
+- Many fixes to the desktop video dialog; the odd 61 Hz modes were removed.
+- The bottom of the screen is cleared properly, for example when a `.TOS` program starts and during boot.
+- `VsetMode()` clears `$FFFF820E`, as TOS and EmuTOS do.
+- `svscreen.sys` now uses the cleaner code from PeP's "v4nvdi" proof of concept (`svscreen2.zip`, 2023).
+- The Atari boot logo and other things are fixed in 32 bpp.
+- The console code was reworked to use NVDI's console code.
+- Many other code errors were fixed.
+
+### `SV.INF` configuration [S014]
+
+Keys are case-sensitive and must be lower case. Keys marked [FLASH] are read from flash rather than from this file when `SV_XBIOS` is in ROM (as in CT60 TOS 3.00).
+
+| Section | Key | Example | Meaning |
+|---------|-----|---------|---------|
+| `[VDI]` | `default` | `$401c` | Default resolution if the AES doesn't specify one |
+| | `forced` | `$4018` (commented out) | Overrides the AES resolution |
+| | `dual` | `off` | Dual-screen desktop. `svscreen.sys` also contains the words `vertical` and `horizontal`, presumably the other values **(unverified)** |
+| | `vdi_bps8c` | `false` | [FLASH] Allow 8-bit chunky in the TOS VDI |
+| | `vdi_bps32` | `false` | [FLASH] Allow 32-bit true colour in the TOS VDI |
+| | `restrict_x`, `restrict_y` | `0` | Limit the VDI screen width/height (0 = off) |
+| `[XBIOS]` | `bootmode` | `$401a` | [FLASH] Resolution used at boot |
+| | `primary` | `vga` | [FLASH] Primary output |
+| | `clone` | `true` | [FLASH] Send the screen to both the primary and secondary outputs |
+| `[HACKS]` | `rezdialog` | `true` | [FLASH] Extended desktop video dialog |
+| | `fast_videl` | `true` | [FLASH] Accelerate Videl resolutions in GEM |
+| | `kill_videl` | `false` | [FLASH] Turn the Videl off in SV resolutions ("do not use") |
+| | `pmmu_boost` | `true` | [FLASH] Higher CPU↔VRAM bandwidth (presumably via the 68060 PMMU cache mode for VRAM) **(unverified)** |
+
+**Extended mode words:** `default`, `forced` and `bootmode` take 16-bit `VsetMode()`-style values such as `$401A`, `$401C` and `$4018`, and the desktop dialog shows a "Modecode". Bit 14 (`$4000`) appears to mark SuperVidel modes. **(unverified)** How the other bits are laid out in SV modes isn't documented yet. The `sv_xbios` source or CT60 TOS 3.00 should settle it.
+
+### Software identifiers seen in `sv_xbios.prg` [S014]
+
+These were found with `strings`; their purpose is inferred, not documented.
+
+- `XBRASupV`: the driver hooks vectors using the XBRA protocol with ID **`SupV`**.
+- The text `SupV` also appears next to a trap call, which suggests a **`SupV` cookie**. **(unverified)**
+- `MagX`: the driver checks for MagiC.
+
 A commenter on S013 said CT60 TOS 1.05 would be rebased and later merged with 3.00. That was a stated plan, not a release. [S013]
 
 S013 says the SuperBlitter is used for VDI blitting. Text rendering doesn't use it yet. [S013]
@@ -85,7 +143,7 @@ These are MiKRO's figures from the S013 comment thread, on a CT60/CT63 system:
 
 ## Sources to look for
 
-- The SuperVidel Drivers 1.00 archive (`sv260918.zip`) and the `ct60tos` 3.00 source on GitHub.
+- The `ct60tos` 3.00 source on GitHub (contains the SV XBIOS: mode-word format, cookie, Videl emulation details).
 - The FreeMiNT SVEthLANa driver source, which should describe the DMA workarounds.
 - The Linux 7.3 SVEthLANa and framebuffer code.
 - Firmware XSVF files and changelogs (FW009, FW010, any later versions).
@@ -97,3 +155,4 @@ These are MiKRO's figures from the S013 comment thread, on a CT60/CT63 system:
 [S011]: ../../sources/INDEX.md
 [S012]: ../../sources/INDEX.md
 [S013]: ../../sources/INDEX.md
+[S014]: ../../sources/INDEX.md
