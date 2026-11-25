@@ -32,3 +32,7 @@
 *.sof binary
 *.pof binary
 *.jic binary
+
+# Keep original source material byte-for-byte
+sources/** -text
+sources/INDEX.md text eol=lf
