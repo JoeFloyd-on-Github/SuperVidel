@@ -26,7 +26,7 @@ In spring 2019 PeP gave MiKRO access to his `sv_drivers` git repository. It was 
 | Release | Contents | Ref |
 |---------|----------|-----|
 | **SuperVidel Drivers 1.00** (`sv260918.zip`, from mikro.naprvyraz.sk) | Bug-fixed driver set; unpack and replace the existing files | [S013] |
-| **CT60 TOS 3.00** (github.com/mikrosk/ct60tos, release tag `3.00`) | CT60 TOS with `SV_XBIOS` built in (under 100 lines of integration code), plus fixes inherited from CT60 TOS 1.03f | [S013] |
+| **CT60 TOS 3.00** (github.com/mikrosk/ct60tos, release tag `3.00`) | CT60 TOS with `SV_XBIOS` built in (under 100 lines of integration code), plus fixes inherited from CT60 TOS 1.03f; SV settings via `CT60CONF.CPX` | [S013][S020] |
 | **FreeMiNT SVEthLANa driver** | New network driver, ported from the Linux driver, in FreeMiNT snapshots | [S013] |
 | **Linux 7.3** | SVEthLANa support (mostly configuration of the existing OpenCores MAC driver) plus framebuffer fixes, sent upstream | [S013] |
 
@@ -85,12 +85,31 @@ Keys are case-sensitive and must be lower case. Keys marked [FLASH] are read fro
 These were found with `strings`; their purpose is inferred, not documented.
 
 - `XBRASupV`: the driver hooks vectors using the XBRA protocol with ID **`SupV`**.
-- The text `SupV` also appears next to a trap call, which suggests a **`SupV` cookie**. **(unverified)**
+- The driver installs a **`SupV` cookie**. This is confirmed by CT60 TOS 3.00, which defines `SV_COOKIE` as `'SupV'`, and by `CT60CONF.CPX`, which looks the cookie up. [S021] See [../programming/detection.md](../programming/detection.md).
 - `MagX`: the driver checks for MagiC.
 
 ### CT60 TOS compatibility warning
 
-In September 2025 MiKRO wrote that the SV "has a serious issue which is probably never going to be fixed" without the VHDL source. He said it works with CT60 TOS 1.03c "just by chance" and doesn't work with 1.05. [S015] The issue itself isn't described. CT60 TOS 3.00 (2026), which has the SV XBIOS built in, carries fixes from 1.03f [S013]. Whether 3.00 avoids the problem, and what the problem is, are open questions.
+In September 2025 MiKRO wrote that the SV "has a serious issue which is probably never going to be fixed" without the VHDL source. He said it works with CT60 TOS 1.03c "just by chance" and doesn't work with 1.05. [S015]
+
+Nine months later, the CT60 TOS **1.03e** release notes (2026-06-21) include: *"Don't try to detect internal and external video clocks when SuperVidel is present (hopefully good enough to work around the SuperVidel lockup on early boot)"*, citing atari-forum post p=439917. [S020] This is very probably the same issue: an **SV lockup early in boot, triggered by TOS's video-clock detection**, worked around in TOS rather than fixed in the SV. **(inferred; the two sources don't refer to each other)** 1.03f and 3.00 build on 1.03e. [S020]
+
+For developers: avoid probing the Falcon's internal/external video clocks (the Videl clock-detection that TOS does at boot) when an SV is present. The details of what TOS 1.03c/1.05 do differently are in the CT60 TOS source, which hasn't been examined yet.
+
+### CT60 TOS releases relevant to the SV [S020]
+
+| Release | Date | SV-relevant changes |
+|---------|------|---------------------|
+| 1.03c (`ct60_404.lzh`) | (uploaded 2016-12-03) | Original CT60 TOS; per S015, works with the SV "just by chance" |
+| 1.03d | 2017-04-10 | The CT60e build of 1.03c (flash ID check relaxed); no SV changes noted |
+| 1.03e | 2026-06-21 | Skips video-clock detection when an SV is present (early-boot lockup workaround); no longer corrupts the Atari logo on SV (code from insane's CT60 TOS 1.05); fixes the double-line/interlace flag when switching between RGB and VGA. Also: **`060sp.prg` is now required under FreeMiNT/MagiC** |
+| 1.03f | 2026-09-18 | "Further Videl safety fixes"; base for the SV flavour |
+| **3.00** | 2026-09-18 | **SV XBIOS built in**: boots in 1920×1080×32bpp. **`CT60CONF.CPX` replaces `SV.INF`** for SV XBIOS settings, because SV.INF can't be read before the hard disk is available. Boot picture and boot delay removed. Still runs on CT6x boards without an SV (without the boot picture) |
+
+Notes from the 3.00 release:
+
+- shoggoth77 connected the SV's capabilities to TOS's existing 8/16/32 bpp chunky routines, which might make CTPCI support straightforward later. [S020]
+- The `[FLASH]` keys in `SV.INF` (see above) are the settings that 3.00 keeps in flash and edits through `CT60CONF.CPX`. **(inferred from S014 + S020)**
 
 A commenter on S013 said CT60 TOS 1.05 would be rebased and later merged with 3.00. That was a stated plan, not a release. [S013]
 
@@ -130,7 +149,7 @@ Use this when the Atari-side updater can't be used, i.e. the SV is "bricked". It
 5. iMPACT warns that the MCS files aren't configuration files. Two users ignored the warning and the flash worked. [S018]
 6. Erase, blank-check, program and verify each PROM, then power-cycle. [S018]
 
-Nature's note also refers to "the instructions manual for updating the ABE+SDR" (the CT60's CPLDs) as the base procedure. A copy of that guide is linked from S018 (exxoshost CT60 flash page, not yet fetched).
+Nature's note also refers to "the instructions manual for updating the ABE+SDR" (the CT60's CPLDs) as the base procedure. That is the CT60 update page [S019], which programs the CPLDs with iMPACT and a Xilinx cable, and points to a PC walkthrough at nokturnal.pl (not yet fetched). The exxoshost CT60 flash page linked from S018 covers the same procedure (not yet fetched).
 
 ## SVEthLANa networking
 
@@ -176,7 +195,7 @@ These are MiKRO's figures from the S013 comment thread, on a CT60/CT63 system:
 
 ## Sources to look for
 
-- The `ct60tos` 3.00 source on GitHub (contains the SV XBIOS: mode-word format, cookie, Videl emulation details).
+- The `sv_drivers` source (PeP's repository, as revived by MiKRO). CT60 TOS 3.00 includes the SV XBIOS only as a binary (`nonfree/sv_xbios.bin`) [S021], so the mode-word format and the Videl emulation details still need the driver source.
 - The FreeMiNT SVEthLANa driver source, which should describe the DMA workarounds.
 - The Linux 7.3 SVEthLANa and framebuffer code.
 - Firmware XSVF files and changelogs (FW009, FW010, any later versions).
@@ -193,3 +212,6 @@ These are MiKRO's figures from the S013 comment thread, on a CT60/CT63 system:
 [S014]: ../../sources/INDEX.md
 [S015]: ../../sources/INDEX.md
 [S018]: ../../sources/INDEX.md
+[S019]: ../../sources/INDEX.md
+[S020]: ../../sources/INDEX.md
+[S021]: ../../sources/INDEX.md

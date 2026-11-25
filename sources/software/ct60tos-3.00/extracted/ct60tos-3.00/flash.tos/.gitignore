@@ -1,0 +1,4 @@
+obj/
+*.ttp
+gentos
+tos_patches.bin

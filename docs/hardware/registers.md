@@ -37,6 +37,11 @@
 | `$80010070` | SuperBlitter destination line offset | R/W |
 | `$80010074` | SuperBlitter address mask / number of lines | R/W |
 | `$80010078` | SuperBlitter control/status | R/W |
+| `$8001007C` | Firmware version (bits 9:0); not in S011, from CT60 TOS source [S021] | R |
+
+## `$8001007C`: Firmware version
+
+This register isn't in the 2012 register map [S011]. CT60 TOS 3.00 reads it at boot and displays `($8001007C) & $3FF` in decimal as the firmware number, e.g. "FW010". The other bits are undocumented. [S021] See [../programming/detection.md](../programming/detection.md).
 
 The VGA block (`$80010014`–`$80010030`) and the DVI block (`$80010034`–`$80010050`) are laid out the same way; the DVI block starts `$20` higher.
 
@@ -267,8 +272,9 @@ Note on mode `%0111`: S011's description of `$80010064` says src2 is weighted by
 - Whether the 27-bit screen and blitter addresses are offsets from `$A0000000`. **(unverified)**
 - Whether the clock chip is a CDCE925 or a CDCE937.
 - Whether the SVEthLANa and Ethernet MAC have their own interrupt vector.
-- What changed in later firmware: S011 is Rev 1, from before boards shipped.
+- What changed in later firmware: S011 is Rev 1, from before boards shipped. At least one register (`$8001007C`, firmware version) was added later [S021].
 
 [S001]: ../../sources/INDEX.md
 [S011]: ../../sources/INDEX.md
 [S012]: ../../sources/INDEX.md
+[S021]: ../../sources/INDEX.md

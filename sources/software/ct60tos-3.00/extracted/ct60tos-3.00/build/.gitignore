@@ -1,0 +1,7 @@
+pure_c/
+build.prg
+build.log
+build.fifo
+ct60conf.cpx
+build.txt
+flash060.prg

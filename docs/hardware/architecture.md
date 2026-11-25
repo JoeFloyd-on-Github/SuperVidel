@@ -35,6 +35,17 @@
 | Regulator | TI **TPS75003** | Makes 2.5 V, 1.8 V and 1.2 V from the CT60's 3.3 V and 5 V | [S010] |
 | Output | DVI-I connector (J1 on the v2 layout) | Digital (TMDS) and analogue RGB | [S010][S012] |
 
+### Host (CT60/CT63) requirements
+
+The SV sits on the CT60/CT63 expansion slot, so the CT60's own CPLD firmware (the ABE and SDR chips) affects how it behaves:
+
+- **ABE_V5M / SDR_V5E (2006):** the initial CT60 version, compatible with the CT63. S019 recommends it "for CT60/63 alone (no add-on board)". [S019]
+- **The release that replaced V5M/V5E** (apparently ABE/SDR 7A, judging by S019's `SDR_V7A.jed` link) made **move16 bursts usable on all expansion-slot addresses**. It also added a new local arbiter (the 2003 one "never tested"), delayed TS by one clock to remove the speed limit above 100 MHz, and changed the watchdog. [S019] The move16 change is the basis for the move16 transfer rates to and from SV RAM in [../software/drivers.md](../software/drivers.md#performance-notes-for-programmers).
+- **ABE_V7F / SDR_V7D (January 2012), the latest:** modified the local arbiter between the F030, the 68060 and the expansion slot ("CTPCI, SuperVidel"), so that Radeon and NEC USB cards and SDMA + BLiTTER can run together. It also added CTPCI IDE port support and a new watchdog timing. [S019] Given the V5M/V5E recommendation above, V7F/V7D is presumably the version to use with an add-on board such as the SV. **(inferred)**
+- The CT60's CPLDs are programmed over JTAG with Xilinx iMPACT, the same tool used to recover the SV's PROMs. [S018][S019]
+
+Whether a particular SV firmware needs a minimum ABE/SDR version isn't documented in the sources so far.
+
 ### JTAG chain
 
 Two separate JTAG paths reach the PROMs [S010]:
@@ -99,3 +110,4 @@ Points worth noting for developers:
 [S011]: ../../sources/INDEX.md
 [S012]: ../../sources/INDEX.md
 [S018]: ../../sources/INDEX.md
+[S019]: ../../sources/INDEX.md

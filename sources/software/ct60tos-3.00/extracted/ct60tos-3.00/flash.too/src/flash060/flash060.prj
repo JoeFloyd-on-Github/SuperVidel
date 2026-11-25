@@ -1,0 +1,26 @@
+;FLASH060.PRJ for Pure C
+
+FLASH060.PRG
+.C [ -2 -P]
+.S [ -4 -S]
+.L [ -S=16384]
+=
+
+PCSTART.O          ; startup code
+
+FLASH060.C
+FLASH.S
+FLASH_CF.S
+SREC.C           
+JEDEC.C
+J_FUSE.S           
+JTAG.C
+JTAG_P.S           
+
+PCFLTLIB.LIB
+PCSTDLIB.LIB
+PCEXTLIB.LIB
+PCTOSLIB.LIB
+PCGEMLIB.LIB
+NVMACC.S
+;MNTLIB44.LIB

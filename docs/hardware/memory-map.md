@@ -8,7 +8,7 @@ All addresses are 68060/CT60 physical addresses.
 
 | Range | Size | Access | Contents | Ref |
 |-------|------|--------|----------|-----|
-| `$80010000`–`$8001007B` | 31 longs | Long only | SuperVidel control registers: general, clock PLL, VGA timing, DVI timing, JTAG, SuperBlitter | [S011] |
+| `$80010000`–`$8001007F` | 32 longs | Long only | SuperVidel control registers: general, clock PLL, VGA timing, DVI timing, JTAG, SuperBlitter (S011), plus the firmware version register at `$8001007C` (S021) | [S011][S021] |
 | `$80012000`–`$80012053` | 84 bytes | Long, R/W | Ethernet MAC core control registers | [S011] |
 | `$80012400`–`$800127FF` | 1 KB | Long, R/W | Ethernet MAC buffer descriptors | [S011] |
 | `$80012800`–`$80013FFF` | 6 KB | Long, R/W | Ethernet MAC packet data buffers | [S011] |
@@ -56,3 +56,4 @@ The Ethernet MAC is inside the SuperVidel FPGA [S010]; the SVEthLANa daughterboa
 [S010]: ../../sources/INDEX.md
 [S011]: ../../sources/INDEX.md
 [S013]: ../../sources/INDEX.md
+[S021]: ../../sources/INDEX.md
