@@ -4,6 +4,7 @@
 - [Software](software/)
 - [Programming](programming/)
 - [CT60 / CT63 host accelerator](ct60/)
+- [Design study: low-cost SV-compatible board](design/sv-lite.md)
 
 ## Conventions
 
