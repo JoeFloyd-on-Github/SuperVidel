@@ -21,4 +21,4 @@ Material is added as it's found. Each item goes in `sources/` unchanged and gets
 
 ## Status
 
-Early stage: gathering sources.
+Gathering sources. Hardware register reference and driver overview drafted from the 2012 Nature documents and a 2026 article (S001–S013).

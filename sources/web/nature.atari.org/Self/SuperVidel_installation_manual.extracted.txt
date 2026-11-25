@@ -1,0 +1,221 @@
+    SuperVidel
+
+Installation manual
+
+      revision 1
+                      History of changes
+Revision   Date       Changed
+1          12-04-30   First release
+Contents
+History of changes................................................................................................................................2
+0 Foreword............................................................................................................................................4
+1 Installation preparations....................................................................................................................4
+   1.1 Tower or other large casing........................................................................................................4
+   1.2 Standard falcon case with only a Supervidel on the CT60........................................................4
+      1.2.1 Remove a screw from the internal keyboard......................................................................4
+   1.3 Standard falcon case with the Supervidel and one other board.................................................5
+2 General installation............................................................................................................................6
+   2.1 Motherboard clocks...................................................................................................................6
+   2.2 CT60-jumper..............................................................................................................................7
+   2.3 CTCM........................................................................................................................................7
+   2.4 Possible Svethlana + EtherNat...................................................................................................7
+   2.5 Putting the SuperVidel in place.................................................................................................7
+      2.5.1 Motherboard clocks (optional)...........................................................................................7
+   2.6 Drivers.......................................................................................................................................8
+      2.6.1 Auto-folder.........................................................................................................................8
+      2.6.2 NVDI 5...............................................................................................................................8
+      2.6.3 MagiC.................................................................................................................................9
+      2.6.4 Other programs..................................................................................................................9
+0 Foreword
+Thank you for buying the SuperVidel!
+It has more or less been a work in progress since before the CT60 was released, but a full time project since
+2008. We who have developed it hope that you will be as pleased using it as we are.
+Even though the SuperVidel is fully usable in its current state we have a list of stuff that may be added or
+optimized in the VHDL and software code after delivery. Some of those features can be found in italics on the
+SuperVidel project page at nature.atari.org.
+We who have worked on the SuperVidel are:
+Henrik Gildå - Hardware design, VHDL code, SW tools
+Torbjörn Gildå - VHDL code, Hardware design, SW tools
+Peter Persson – XBIOS, VDI, NVDI drivers and patches
+
+
+This manual first discusses preparations that you need to do depending on which type of casing you have.
+Then the general installation chapter gives you the option of better Videl compatibility by soldering two wires
+on the motherboard. Also discussed is complications made by using more boards on the CT60 than the
+SuperVidel in a standard falcon case.
+Some pictures will be replaced by real photos when the real hardware has been produced.
+
+
+1 Installation preparations
+Turn the power OFF and disconnect the PSU power cable from the wall socket, before starting any
+work. There is otherwise power on the +5VSB line even though the computer is off.
+How to install the SuperVidel depends on what type of falcon case you have and if you have other boards to
+fit on the CT60 like an EtherNat or CTPCI (the Svethlana doesn't count here). Consider these 3 cases:
+    1. Tower casing. Go to 1.1 Tower or other large casing
+    2. Original falcon casing with only a SuperVidel (+optional Svethlana). Go to 1.2 Standard falcon case
+       with only a Supervidel on the CT60
+    3. Original falcon casing with SuperVidel + either an EtherNat or a CTPCI (+optional Svethlana). Go to
+       1.3 Standard falcon case with the Supervidel and one other board
+
+
+
+
+1.1 Tower or other large casing
+This casing is the easiest to install in. You can have several boards on top of the CT60 as long as the casing
+allows it. Note that the CT60 bus will get more delays and noise (signal reflections) the more boards you add,
+so you can't run the 68060-clock as fast as before.
+No other special considerations apply, so go to 2 General installation.
+
+
+1.2 Standard falcon case with only a Supervidel on the CT60
+This case is almost as easy as the Tower casing. You can have an optional Svethlana ethernet board on the
+SuperVidel too. But you need to do this:
+
+
+1.2.1 Remove a screw from the internal keyboard
+If you intend to keep the original keyboard inside the original falcon case, you need to remove a screw from
+under the keyboard and put insulating tape on a bridging pin. Otherwise they may short circuit some pins on
+the SuperVidel. See the red rings in the image below.
+becomes
+
+
+
+
+Then go to 2 General installation.
+
+
+1.3 Standard falcon case with the Supervidel and one other board
+If you intend to put the SuperVidel on top of a CTPCI or put an EtherNat on top of the SuperVidel (with no
+CTPCI below it) you need to follow these instructions.
+Note the following:
+    1. Only two boards fit on the CT60. A third board will hit the ceiling of the standard falcon case.
+    2. If mounting the CTPCI requires putting extra connector sockets between the CT60 and the CTPCI,
+       you can not fit a SuperVidel also on top of the CTPCI, since it will hit the ceiling.
+    3. We have not tested if a SuperVidel + CTPCI and its PCI slots actually fit inside a standard falcon
+       case. You may have to remove the floppy drive to accomplish this.
+    4. See the 2.3 CTCM section for a discussion of possible height problems with the CTCM.
+The biggest work in this configuration, however, is that you need to fit the CT60 Extender boards below the
+CT60. See the separate Extender boards installation manual for how to fit the Extender boards to
+your CT60. It can be found on nature.atari.org. Then go back here and read 2 General installation.
+2 General installation
+These steps apply to all kinds of falcon cases.
+
+
+2.1 Motherboard clocks
+The SuperVidel mimics the Videl output by generating a video clock that differs by only a few ppm in
+frequency to the real 25.175MHz VGA clock on the motherboard. But since they can never be exactly the
+same, an emulated Videl output from the SuperVidel will slowly drift out of sync with the Videl video signal
+over time. This is no problem if you run desktop stuff only. So you could skip this part and go to 2.2 CT60-
+jumper.
+But if you want to play games which use vertical sync, and especially those who use horizontal sync too
+(used for palette swapping), you will need to feed the original motherboard video clock(s) into the
+SuperVidel. They are not available as signals on the CT60 connectors, so they must be fed through a
+separate small flat cable to the JP7 connector on the SuperVidel. Right now the SuperVidel doesn't support
+RGB modes, so we'll just focus on feeding the VGA clock into the SuperVidel here.
+The supplied flat 6-wire flat cable is used for this purpose. When holding it like this:
+
+
+
+
+Find the 4th wire from the top of the image (counted from the red wire as #1), peel it about 3 mm and solder it
+to the point marked VGA in the next image. This is just right of the big capacitor on the motherboard:
+Then you peel (3mm) the third wire from the top, and connect it to the point marked Ground in the image.
+Note: you should let the VGA clock signal and its ground wire be kept together for best signal quality. Only
+split them as much as necessary at the motherboard solder points.
+
+
+2.2 CT60-jumper
+By putting a jumper on J7 (near the front CT60 connector) you enable a filter on the CT60 clock which is
+necessary for stable operation. Only one such filter is allowed to be enabled on any board stacked on the
+CT60.
+    •   If the SuperVidel is the lowest board on the CT60 you should put the supplied black jumper on J7.
+    •   If you have a CTPCI at the bottom, it already has such a filter, so don't put the jumper on the
+        SuperVidel.
+    •   If you will put an EtherNat on top of the SuperVidel, remove the jumper from the EtherNat.
+
+
+2.3 CTCM
+The CT clock module, CTCM, is the only thing on the CT60 that is high enough to be able to cause trouble
+when mounting the SuperVidel on the CT60. Put some insulation tape on the entire CTCM before
+putting the SuperVidel on the CT60.
+Note for original case users with an EtherNat on the SuperVidel:
+If the SuperVidel can not be pushed down enough when the CTCM is too high you will have to lower it by
+either replacing the CTCM with a fixed oscillator, or lower the CTCM itself by removing its socket.
+
+
+2.4 Possible Svethlana + EtherNat
+If you want to use a Svethlana ethernet board together with an EtherNat on the SuperVidel, you should
+mount the supplied flat cable on the SuperVidel JP4 connector before putting the EtherNat on the
+SuperVidel. But read the Svethlana installation manual for this, at nature.atari.org.
+
+
+2.5 Putting the SuperVidel in place
+Now that you have read and done all the above you are ready to install the SuperVidel on the CT60. The DVI
+connector should be facing right.
+If you have an EtherNat and Svethlana, make sure its flat cable is attached to the SuperVidel before putting
+the EtherNat on the SuperVidel. Then you put the whole package of SuperVidel (+ possible EtherNat) onto
+the CT60 expansion connector (or possibly the CTPCI).
+    •   Be extremely careful that you align the connector pins correctly before pushing down the
+        SuperVidel! Turning the power on when it is incorrectly aligned could kill any chip on either
+        the SuperVidel or CT60!!!
+    •   Be very careful not to apply pressure on ANY CHIP when pushing down the SuperVidel
+        (EtherNat)! Only press on the upward going 50 pin headers on the front and back sides.
+    •   Gently push the SuperVidel down a few mm at a time on each side so you don't push it all the
+        way down on one side first!
+    •   Be aware the the CTCM may be too high to be able to push the SuperVidel down all the way.
+        In that case read 2.3 CTCM again.
+
+
+2.5.1 Motherboard clocks (optional)
+When you have put the SuperVidel in place you can install the motherboard clock signal cable (optional)
+from section 2.1 Motherboard clocks.
+Here we have marked in red on which pin on the JP7 connector the VGA clock should be fed. The connector
+is a right-angle type (facing left). Now that the SuperVidel has been mounted on the CT60 the flat cable
+connector should be connected to JP7.
+Note: The SuperVidel will still work fine without this cable, since it has sensor logic for detecting if the
+motherboard clock(s) are present and only then it uses them. If not present the VGA clock is emulated with a
+few ppm error. The cable is only necessary when playing games/demos to not lose the vertical and
+horizontal sync over time.
+
+
+2.6 Drivers
+The SuperVidel works without any drivers and will emulate the current Videl mode. But since the built in VDI
+uses the motherboard Blitter for its drawing, which the SuperVidel can not “spy” on, you will get garbage on
+the screen. NVDI doesn't use the blitter, so running it will fix this problem.
+But the special SuperVidel drivers both remove the use of the old Blitter and accelerate drawing by putting
+the video screen in the new SuperVidel graphics RAM, so it is recommended to use them.
+All these drivers/programs are available for download on http://nature.atari.org.
+
+
+2.6.1 Auto-folder
+SV_XBIOS.PRG
+Run this first in the auto folder. Extends the VDI, XBIOS and GEM Desktop, to support new graphics modes,
+fast video memory, and SuperBlitter acceleration. Also replaces the TOS built in screen resolution selector
+with a new one where you can select SuperVidel, Videl and ST modes.
+
+
+2.6.2 NVDI 5
+SVSCREEN.SYS, SV_BPS16.SYS, SV_BPS32, SV_BPS8C.SYS
+Accellerated drivers for NVDI5, supporting new color depths and screen resolutions. Put these in your
+GEMSYS folder, and edit the entry for device 5 in ASSIGN.SYS as follows:
+Before:
+05p SCREEN.SYS
+After:
+05 SVSCREEN.SYS
+2.6.3 MagiC
+CHGRES.PRG
+Resolution switcher for MagiC.
+
+
+2.6.4 Other programs
+SV-JTAG.TTP
+The SuperVidel firmware is upgraded using this program. It has been tested under Mint mostly, but should
+work under TOS/MagiC too. It only generates text output, and must be run in 060 mode. New firmwares
+come as XSVF files and are put on nature.atari.org. Run SV-JTAG.TTP with path and filename of the XSVF-
+file to upgrade the SuperVidel firmware. A percentage is incremented as the two Xilinx PROMs on the
+SuperVidel are erased and programmed. At 47% the second PROM is erased, so a pause is noticed in the
+progress. Be aware that you must not cut the power to your falcon during the update. If this should
+happen the SuperVidel flash chips will be incompletely programmed and your SuperVidel will be
+“dead” until programmed using a Xilinx Platform USB cable and the Webpack software available
+from Xilinx.
+

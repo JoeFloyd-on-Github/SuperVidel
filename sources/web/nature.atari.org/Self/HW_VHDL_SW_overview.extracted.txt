@@ -1,0 +1,146 @@
+Rev 1
+2012-03-10
+
+This document provides desciptions of the SuperVidel hardware, VHDL structure and SW tools and drivers.
+HW overview
+
+               HW_JTAG                 HW_JTAG
+                                                                                                                             Crystal
+     JTAG                  Xilinx        Master                 Xilinx                                                                                          Expansion/Svethlana
+                                         serial                                              TI                              25MHz
+     Conn.                 PROM                                 PROM                                                                                              FPC-conn 45pin
+                                                                                          Clockchip
+     14 pin                4Mbit       SW_JTAG                  4Mbit
+                                                                                          CDCE937
+                                                                                                                   Motherboard
+                                                                                                                  CLK connector
+
+
+
+                                                     SW_JTAG
+                                                                       Master
+
+                                                                                DDR-clk
+                                                                                                                               25.175MHz
+                                                                                            VGA-clk   DVI-clk
+                                                                                                                   32MHz
+                                                                       serial
+              Filter
+                         Jumper
+                CT60-               Filtered CT60-                                                                                         18 data, 3.3V, GND
+                 clk                       clk
+
+   CT60
+   Addr
+                                      Addr x32
+   Conn.                                Ctrl
+
+                                                                            Xilinx Spartan3-2000                                                         Analog Devices
+                                                                                      -5                                                   RGB24              DAC                     Analog
+                        74LCX245                                                  FGG456C                                                  VGA-clk         ADV7125                     RGB           DVI-I
+                           x13                                                                                                                                                                      Conn.
+   CT60                               Data x32                                                                                                                                                      Digital
+   Data                                 Ctrl                                                                                                                       TI                 TMDS            +
+                                                                                                                                                                                       RGB
+   Conn.       5V                                                                                                                          RGB24                  DVI                               Analog
+                                                                                                                                           DVI-clk              TFP410
+
+                                                                                          Addr/Ctrl
+     3.3V                                             DDR-clk    D16                                               DDR-clk     D16
+
+
+
+                         2.5V
+                                                                   Micron                                        Micron
+         TI              1.8V
+                                                                   DDR2                                          DDR2
+      TPS75003           1.2V                                     512Mbit                                       512Mbit
+                                                                                                                                                                                               IC
+
+                                                                                                                                                                                               Connector
+VHDL overview
+                                                                   Translated
+                Addr, Data               Videl regs                Videl regs                                            Videl/SV                                                    RGB24
+                                                                                                                                                            VGA pipeline
+                   Ctrl                      and                                                       MUX              resolution                                                    Sync
+                                                                                                                                                                                     VGA-clk
+                                         translation                                                                                          Data fetch
+
+                                                                                                                                                      VGA palette
+                                                                                                                                                        lookup
+
+
+                                                                                                       MUX               Videl/SV
+                                                                                                                        resolution
+                Addr, Data                                            SV                                                                                                             RGB24
+                   Ctrl                                             settings                                                                                 DVI pipeline             Sync
+                                                                                                                                                                                     DVI-clk
+                                                                                                                                              Data fetch
+
+                                          SV regs                    I2C
+                                                                                I2C                                                                   DVI palette
+                                                                   CDCE937
+                                                                                                                                                       lookup
+
+                                                                                                                               Read
+                                                                    TFP410
+                                                                      Init      I2C
+       CT60                                                                                                                           Read                                        CT60-clk
+Addr                                                                               Blitter
+Data    Bus                  Svethlana                                            settings                                                                                        VGA-clk
+Ctrl    Intf.
+                              settings                                                                                                           SuperBlitter                     DVI-clk
+                                                                                                                                                                                  DDR2-clk
+                                         Ethernet                                                                                                                                 IOs
+                Addr, Data                 MAC          Ethernet
+                                                          MII
+                   Ctrl                  controller                                                                                           Read
+                                                                                                                                              Write
+
+
+
+                                            CT60-DDR2                                  Read
+                Addr, Data                                                             Write
+                   Ctrl                        bridge                    CT60 bridge
+                                                                         Bus request
+                                                                                                               VGA
+                                                                                             Blitter
+                                                                                                             pipeline
+                                                                                                               DVI                    DDR2                           DDR2         DDR2
+                                                                                                             pipeline                 Cache                         Controller   Data x32
+                                                                                                                                                                                 Addr, Clk
+                                                           VGA palette
+                                                             lookup
+                Addr, Data                                                             DDR2-bus
+                   Ctrl                   Palette          DVI palette
+                                                            lookup                      Arbiter
+Software tools and drivers
+ Atari
+
+ SV_XBIOS.PRG:
+        Extends the VDI, XBIOS and GEM Desktop, to support new graphics modes, fast video memory, and SuperBlitter
+        acceleration. Run this first in the auto folder.
+
+ SVSCREEN.SYS, SV_BPS16.SYS, SV_BPS32.SYS, SV_BPS8C.SYS:
+       Accellerated drivers for NVDI5, supporting new color depths and screen resolutions. Put these in your GEMSYS folder, and
+       edit the entry for device 5 in ASSIGN.SYS as follows:
+
+          Before:
+          05p SCREEN.SYS
+
+          After:
+          05 SVSCREEN.SYS
+
+ CHGRES.PRG:
+       Resolution switcher for MagiC.
+
+ SV-JTAG.TTP:
+        Upgrades the SV firmware. Run with path and filename of an XSVF-file. A percentage is incremented as the two Xilinx
+        PROMs are erased and programmed. At 47% the second PROM is erased, so a pause is noticed in the progress.
+
+ PC
+
+ CDCE925-Clockfinder:
+       .NET program for generating necessary clock register settings to create an output frequency from the 25MHz input frequency.
+       The source code is also available as C-code to be compiled and run on Atari.
+
