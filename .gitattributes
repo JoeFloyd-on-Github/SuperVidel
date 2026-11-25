@@ -1,0 +1,34 @@
+* text=auto
+*.md text eol=lf
+*.txt text
+*.s text
+*.c text
+*.h text
+
+# Binary / Atari-specific formats
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.zip binary
+*.lzh binary
+*.arc binary
+*.tos binary
+*.prg binary
+*.ttp binary
+*.app binary
+*.acc binary
+*.cpx binary
+*.ldg binary
+*.sys binary
+*.rom binary
+*.bin binary
+*.img binary
+*.st binary
+*.msa binary
+*.rbf binary
+*.sof binary
+*.pof binary
+*.jic binary
