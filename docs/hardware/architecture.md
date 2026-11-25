@@ -37,6 +37,8 @@
 
 ### Host (CT60/CT63) requirements
 
+The CT60 itself (memory map, 060 bus slot pinout, hardware emulation window, interrupts) is documented in [../ct60/](../ct60/README.md).
+
 The SV sits on the CT60/CT63 expansion slot, so the CT60's own CPLD firmware (the ABE and SDR chips) affects how it behaves:
 
 - **ABE_V5M / SDR_V5E (2006):** the initial CT60 version, compatible with the CT63. S019 recommends it "for CT60/63 alone (no add-on board)". [S019]

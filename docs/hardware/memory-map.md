@@ -2,7 +2,7 @@
 
 > Primary source: *SuperVidel Memory Map*, Rev 1, 2012-03-12 [S011]. This was the register reference for firmware of that time; later firmware may differ. Full register details are in [registers.md](registers.md).
 
-All addresses are 68060/CT60 physical addresses.
+All addresses are 68060/CT60 physical addresses. All SV ranges are in the CT60's non-cacheable 060 bus slot window (`$80000000`–`$BFFFFFFF`) or in the Falcon shadow (`$FFxxxxxx`); see [../ct60/memory-map.md](../ct60/memory-map.md).
 
 ## Overview
 
@@ -30,7 +30,7 @@ The VGA/DVI screen address registers and the SuperBlitter address registers are 
 
 ## Emulated Videl registers
 
-The SV decodes writes to the original Videl registers and translates them into its own video timing ("Videl regs and translation" in the VHDL diagram [S010]). S011 doesn't list these registers but mentions:
+The SV decodes writes to the original Videl registers and translates them into its own video timing ("Videl regs and translation" in the VHDL diagram [S010]). The mechanism is presumably the CT60's [hardware emulation window](../ct60/bus-slot.md#hardware-emulation-window), which the CT60 manual describes with a "SUPER-VIDEL chip" as its example **(inferred)** [S022]. S011 doesn't list these registers but mentions:
 
 - **`$FFFF82C0.w` bit 8:** a copy of the *SV mode* status bit (`$80010000` bit 6). Programs that save and restore the Videl registers will save and restore this bit too, so the SV knows whether to go back to a SuperVidel or a Videl resolution. [S011]
 - S001 says a control bit for 8-bit chunky mode was added in the `$FF82xx` Videl register range; which register and bit is not documented yet. [S001]
@@ -57,3 +57,4 @@ The Ethernet MAC is inside the SuperVidel FPGA [S010]; the SVEthLANa daughterboa
 [S011]: ../../sources/INDEX.md
 [S013]: ../../sources/INDEX.md
 [S021]: ../../sources/INDEX.md
+[S022]: ../../sources/INDEX.md

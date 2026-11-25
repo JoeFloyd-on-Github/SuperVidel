@@ -3,6 +3,7 @@
 - [Hardware](hardware/)
 - [Software](software/)
 - [Programming](programming/)
+- [CT60 / CT63 host accelerator](ct60/)
 
 ## Conventions
 

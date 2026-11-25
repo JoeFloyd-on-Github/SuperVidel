@@ -12,6 +12,7 @@ Technical documentation for the **SuperVidel**, a graphics card add-on for the A
 | [`docs/hardware/`](docs/hardware/) | Architecture, bus interface, memory map, registers, video timing, connectors |
 | [`docs/software/`](docs/software/) | Drivers, firmware, configuration and OS integration |
 | [`docs/programming/`](docs/programming/) | Programming guides and example code |
+| [`docs/ct60/`](docs/ct60/) | The CT60/CT63 host accelerator: memory map, 060 bus slot, hardware emulation window, XBIOS |
 | [`sources/`](sources/) | Original source material, kept as received ([index](sources/INDEX.md)) |
 | [`tools/`](tools/) | Scripts used to extract or analyse source material |
 
