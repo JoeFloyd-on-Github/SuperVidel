@@ -13,7 +13,7 @@ Peter Persson (PeP) wrote the XBIOS, VDI and NVDI drivers and patches. [S012]
 | File | Where it goes | Function | Ref |
 |------|---------------|----------|-----|
 | `SV_XBIOS.PRG` | AUTO folder, run first | Extends the VDI, XBIOS and GEM Desktop with the new modes, fast video RAM and SuperBlitter acceleration. Replaces the TOS resolution selector with one offering SuperVidel, Videl and ST modes | [S010][S012] |
-| `SVSCREEN.SYS`, `SV_BPS16.SYS`, `SV_BPS32.SYS`, `SV_BPS8C.SYS` | `GEMSYS` | Accelerated NVDI 5 drivers. In `ASSIGN.SYS`, change `05p SCREEN.SYS` to `05 SVSCREEN.SYS` | [S010][S012] |
+| `SVSCREEN.SYS`, `SV_BPS16.SYS`, `SV_BPS32.SYS`, `SV_BPS8C.SYS` | `GEMSYS` | Accelerated NVDI 5 drivers. In `ASSIGN.SYS`, change **every** `SCREEN.SYS` line (e.g. `01p SCREEN.SYS`) to `SVSCREEN.SYS` without the `p`. The 2012 manual mentioned only device 05; Rev 5 says all lines | [S010][S012][S025] |
 | `CHGRES.PRG` | — | Resolution switcher for MagiC | [S010][S012] |
 | `SV-JTAG.TTP` | — | Firmware updater (see below) | [S010][S012] |
 
@@ -92,7 +92,11 @@ These were found with `strings`; their purpose is inferred, not documented.
 
 In September 2025 MiKRO wrote that the SV "has a serious issue which is probably never going to be fixed" without the VHDL source. He said it works with CT60 TOS 1.03c "just by chance" and doesn't work with 1.05. [S015]
 
-Nine months later, the CT60 TOS **1.03e** release notes (2026-06-21) include: *"Don't try to detect internal and external video clocks when SuperVidel is present (hopefully good enough to work around the SuperVidel lockup on early boot)"*, citing atari-forum post p=439917. [S020] This is very probably the same issue: an **SV lockup early in boot, triggered by TOS's video-clock detection**, worked around in TOS rather than fixed in the SV. **(inferred; the two sources don't refer to each other)** 1.03f and 3.00 build on 1.03e. [S020]
+Nine months later, the CT60 TOS **1.03e** release notes (2026-06-21) include: *"Don't try to detect internal and external video clocks when SuperVidel is present (hopefully good enough to work around the SuperVidel lockup on early boot)"*, citing atari-forum post p=439917. [S020] This is very probably the same issue: an **SV lockup early in boot, triggered by TOS's video-clock detection**, worked around in TOS rather than fixed in the SV. 1.03f and 3.00 build on 1.03e. [S020]
+
+**Confirmed cause:** insane's CT60 boot 1.05 (2026-07-15) changelog says it removed the boot logo, "so now TOS doesn't try to detect internal and external video clocks which crashes the system when SuperVidel is present due to SuperVidel hardware bugs". [S030] So the boot-time Videl clock measurement crashes the SV because of a hardware (firmware) bug, and every current TOS works around it. This also fits MiKRO's 2025 comment that the problem couldn't be fixed without the VHDL. [S015]
+
+The 2013 installation manual recommended CT60 TOS **1.03c**, and reported that 2.01 "suddenly stopped booting" at times. [S025]
 
 For developers: avoid probing the Falcon's internal/external video clocks (the Videl clock-detection that TOS does at boot) when an SV is present. The details of what TOS 1.03c/1.05 do differently are in the CT60 TOS source, which hasn't been examined yet.
 
@@ -103,6 +107,7 @@ For developers: avoid probing the Falcon's internal/external video clocks (the V
 | 1.03c (`ct60_404.lzh`) | (uploaded 2016-12-03) | Original CT60 TOS; per S015, works with the SV "just by chance" |
 | 1.03d | 2017-04-10 | The CT60e build of 1.03c (flash ID check relaxed); no SV changes noted |
 | 1.03e | 2026-06-21 | Skips video-clock detection when an SV is present (early-boot lockup workaround); no longer corrupts the Atari logo on SV (code from insane's CT60 TOS 1.05); fixes the double-line/interlace flag when switching between RGB and VGA. Also: **`060sp.prg` is now required under FreeMiNT/MagiC** |
+| CT60 boot **1.05** (insane/tSCc) | 2026-07-15 | Rebased on 1.03e. Boot logo removed, so no Videl clock detection (avoids the SV crash); Atari logo drawn without the BLiTTER "for SV users"; CTPCI memory space limited to `$C0000000`–`$E0000000` so EtherNat + SuperVidel + CTPCI work together; CT60 Setup program. **Not for PCI devices such as a Radeon.** [S030] |
 | 1.03f | 2026-09-18 | "Further Videl safety fixes"; base for the SV flavour |
 | **3.00** | 2026-09-18 | **SV XBIOS built in**: boots in 1920×1080×32bpp. **`CT60CONF.CPX` replaces `SV.INF`** for SV XBIOS settings, because SV.INF can't be read before the hard disk is available. Boot picture and boot delay removed. Still runs on CT6x boards without an SV (without the boot picture) |
 
@@ -120,7 +125,7 @@ S013 says the SuperBlitter is used for VDI blitting. Text rendering doesn't use 
 - Firmware is shipped as **XSVF** files. `SV-JTAG.TTP <path to .xsvf>` erases and programs the two Xilinx configuration PROMs. It must run in **68060 mode**, was tested mostly under MiNT, and should also work under TOS and MagiC. It prints a percentage; there's a pause at 47% while the second PROM is erased. [S010][S012]
 - **Don't cut power during an update.** A half-programmed SV will be dead until it's reprogrammed with a Xilinx Platform USB cable and the Xilinx WebPACK software. [S012]
 - The new firmware takes effect after a power cycle. [S001]
-- **Later updater:** by 2013, Nature's firmware note refers to an Atari updater called **`SVUPDxxx.APP`**, apparently named after the firmware version, in place of `SV-JTAG.TTP`. [S018] A 2022 post mentions an "FW11 update app". [S018]
+- **`SVUPDxxx.APP` (from 2013):** this replaced `SV-JTAG.TTP`. It is a GEM program, tested under MiNT and TOS, and must run in **060 mode**. Each firmware release comes as a new `SVUPDxxx.APP` with the firmware built in, where xxx is the version number. Run it and choose "Begin...". It can also take a separate **`.BZ2`** (bzip2) firmware file, which it decompresses first. Programming then proceeds as before (two PROMs, pause at 47%), and a power cut during the update leaves the SV dead until it is recovered over JTAG. [S025] A 2022 post mentions an "FW11 update app". [S018]
 
 ### Known firmware versions
 
@@ -152,6 +157,8 @@ Use this when the Atari-side updater can't be used, i.e. the SV is "bricked". It
 Nature's note also refers to "the instructions manual for updating the ABE+SDR" (the CT60's CPLDs) as the base procedure. That is the CT60 update page [S019], which programs the CPLDs with iMPACT and a Xilinx cable, and points to a PC walkthrough at nokturnal.pl (not yet fetched). The exxoshost CT60 flash page linked from S018 covers the same procedure (not yet fetched).
 
 ## SVEthLANa networking
+
+**Installation (2013):** the SVEthLANa connects to the SV with a ribbon cable into a locking FPC connector, blue side up at the SV end and blue side down at the SVEthLANa end. The 2013 driver is **`svethlan.xif`** for MiNTNet (tested with MiNT 1.16.C and 1.17.0); no MagiCNet or STiK/STinG driver. Its MAC address is set in **`svethlan.inf`** in the root of the boot drive: 12 hex digits, no `0x`, e.g. `00204358783a`. [S025] Today there is also a new FreeMiNT driver and a Linux driver (below).
 
 S013 confirms that the Ethernet MAC in the FPGA is the **OpenCores** Ethernet MAC, which is why Linux support was mostly configuration. [S013] This agrees with S011's references to `eth_speci.pdf` and `eth_design_document.pdf` (see [../hardware/memory-map.md](../hardware/memory-map.md)).
 
@@ -215,3 +222,5 @@ These are MiKRO's figures from the S013 comment thread, on a CT60/CT63 system:
 [S019]: ../../sources/INDEX.md
 [S020]: ../../sources/INDEX.md
 [S021]: ../../sources/INDEX.md
+[S025]: ../../sources/INDEX.md
+[S030]: ../../sources/INDEX.md

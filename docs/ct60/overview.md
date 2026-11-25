@@ -53,7 +53,7 @@ Unbuffered, 64-bit (no parity/ECC), PC100/PC133 CL2 DIMMs built from chips with 
 |---------|------|---------------------------|-----|
 | ABE_V5M / SDR_V5E | 2006 | Initial CT60 version (CT63-compatible). Recommended "for CT60/63 alone (no add-on board)" | [S019] |
 | (apparently ABE/SDR 7A) | — | **move16 bursts usable on all expansion-slot addresses**; new local arbiter; TS delayed one clock (no speed limit above 100 MHz); boot from ABE flash without a TOS chip | [S019] |
-| **ABE_V7F / SDR_V7D** | 2012-01 | Local arbiter changed for the F030, the 060 and the expansion slot ("CTPCI, SuperVidel"); CTPCI IDE support; new watchdog | [S019] |
+| **ABE_V7F / SDR_V7D** | 2012-01 | Local arbiter changed for the F030, the 060 and the expansion slot ("CTPCI, SuperVidel"); CTPCI IDE support; new watchdog. **Required before installing a SuperVidel** [S025] | [S019][S025] |
 
 The CPLDs are programmed over JTAG: from a PC with Xilinx iMPACT, or from the Falcon's parallel port with a modified cable and Flash Tool. See [software.md](software.md#flash-tool-and-jtag). [S019][S022]
 
@@ -62,3 +62,4 @@ The CPLDs are programmed over JTAG: from a PC with Xilinx iMPACT, or from the Fa
 [S019]: ../../sources/INDEX.md
 [S020]: ../../sources/INDEX.md
 [S022]: ../../sources/INDEX.md
+[S025]: ../../sources/INDEX.md

@@ -43,7 +43,7 @@ The SV sits on the CT60/CT63 expansion slot, so the CT60's own CPLD firmware (th
 
 - **ABE_V5M / SDR_V5E (2006):** the initial CT60 version, compatible with the CT63. S019 recommends it "for CT60/63 alone (no add-on board)". [S019]
 - **The release that replaced V5M/V5E** (apparently ABE/SDR 7A, judging by S019's `SDR_V7A.jed` link) made **move16 bursts usable on all expansion-slot addresses**. It also added a new local arbiter (the 2003 one "never tested"), delayed TS by one clock to remove the speed limit above 100 MHz, and changed the watchdog. [S019] The move16 change is the basis for the move16 transfer rates to and from SV RAM in [../software/drivers.md](../software/drivers.md#performance-notes-for-programmers).
-- **ABE_V7F / SDR_V7D (January 2012), the latest:** modified the local arbiter between the F030, the 68060 and the expansion slot ("CTPCI, SuperVidel"), so that Radeon and NEC USB cards and SDMA + BLiTTER can run together. It also added CTPCI IDE port support and a new watchdog timing. [S019] Given the V5M/V5E recommendation above, V7F/V7D is presumably the version to use with an add-on board such as the SV. **(inferred)**
+- **ABE_V7F / SDR_V7D (January 2012), the latest:** modified the local arbiter between the F030, the 68060 and the expansion slot ("CTPCI, SuperVidel"), so that Radeon and NEC USB cards and SDMA + BLiTTER can run together. It also added CTPCI IDE port support and a new watchdog timing. [S019] **The SV requires ABE 7F / SDR 7D.** The 2013 installation manual says you must update the CT60 to the latest ABE and SDR versions ("7F and 7D respectively at the time of writing") before installing the SV. It also says to flash CT60 TOS 1.03c: "2.01 seems to work too, but we've had the problem that it suddenly stopped booting". [S025]
 - The CT60's CPLDs are programmed over JTAG with Xilinx iMPACT, the same tool used to recover the SV's PROMs. [S018][S019]
 
 Whether a particular SV firmware needs a minimum ABE/SDR version isn't documented in the sources so far.
@@ -61,14 +61,14 @@ Two separate JTAG paths reach the PROMs [S010]:
 |-----|----------|-----|
 | CT60 address and data connectors | Host bus. The front and back 50-pin headers pass through upward, so other boards can stack on top | [S010][S012] |
 | J7 | Jumper that enables the CT60 clock filter. Fit it only if the SV is the lowest board on the CT60, since only one board in the stack may filter the clock | [S012] |
-| JP7 | Motherboard clock input, a right-angle 6-pin header (6-wire flat cable). The manual describes connecting only the VGA (25.175 MHz) clock: wire 4 to the clock and wire 3 to ground, counting from the red wire as #1. The motherboard solder point is next to the 25.175 MHz oscillator near the Videl | [S012] |
+| JP7 | Motherboard clock/sync input, a right-angle 6-pin header with a 6-wire flat cable. **Rev 5 of the manual (2013) wires two signals, each through a series resistor supplied with the cable:** the **VGA 25.175 MHz clock** (resistor 1, to the point right of the big capacitor next to the 25.175 MHz oscillator, with its neighbouring wire to ground) and the Falcon's **Vsync** (resistor 2, to the inner end of L29 on the line to the video port). The other wires are spare, "for future use". The SV uses the motherboard clock and Vsync only when it detects them; otherwise it generates the VGA clock itself with a few ppm error. Rev 1 (2012) wired only the clock, without resistors | [S012][S025] |
 | JP4 | Flat-cable connector used with the SVEthLANa when an EtherNat is also stacked on the SV | [S012] |
 | Expansion / SVEthLANa FPC | 45-pin FPC: 18 data lines, 3.3 V, GND | [S010] |
 | JP2 | 14-pin JTAG (2 mm pitch, keyed), near the DVI connector, for the Xilinx Platform Cable USB. It's on the HW_JTAG chain through both PROMs | [S010][S018] |
 
 S010 shows separate "Motherboard CLK connector" and "Expansion/SVEthLANa FPC" blocks; S012 names JP7 and JP4. That JP7 is the motherboard CLK connector is clear from S012. Whether JP4 is the 45-pin FPC itself or a separate header is **not yet confirmed**.
 
-**Discrepancy:** S001 says the clock cable has "4 wires" covering both the 25.175 MHz and 32 MHz clocks. S012 supplies a 6-wire cable and wires only the VGA clock, because RGB modes weren't supported yet.
+**History of the clock cable:** S001 (2012-03) planned "4 wires" for both the 25.175 MHz and 32 MHz clocks. Manual Rev 1 (2012-04) supplied a 6-wire cable and wired only the VGA clock, because RGB modes weren't supported. By Rev 5 (2013-08) the cable carries series resistors and a Vsync wire; the history lists clock-cable rewrites in Rev 2 (2013-03) and Rev 3 (2013-07). [S001][S012][S025] Bit 10 of `$80010000` ("Videl 32 MHz valid") suggests the 32 MHz input exists on the board, but no manual revision wires it. **(inferred)**
 
 ### Board revisions
 
@@ -113,3 +113,4 @@ Points worth noting for developers:
 [S012]: ../../sources/INDEX.md
 [S018]: ../../sources/INDEX.md
 [S019]: ../../sources/INDEX.md
+[S025]: ../../sources/INDEX.md

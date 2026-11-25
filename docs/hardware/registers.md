@@ -1,6 +1,6 @@
 # SuperVidel Register Reference
 
-> Source: *SuperVidel Memory Map*, Rev 1, 2012-03-12 [S011], unless marked otherwise. All registers are 32 bits wide and must be accessed as longwords. "R" = read-only, "R/W" = read/write, "W" = write-only. Reset values marked `?` depend on hardware state.
+> Source: *SuperVidel Memory Map*, **Rev 7, 2016-07-13** [S024] (which supersedes Rev 1 of 2012-03-12 [S011]), unless marked otherwise. Fields added after Rev 1 are noted with the firmware revision that introduced them, where the source gives one. All registers are 32 bits wide and must be accessed as longwords. "R" = read-only, "R/W" = read/write, "W" = write-only. Reset values marked `?` depend on hardware state.
 
 ## Register summary
 
@@ -37,11 +37,16 @@
 | `$80010070` | SuperBlitter destination line offset | R/W |
 | `$80010074` | SuperBlitter address mask / number of lines | R/W |
 | `$80010078` | SuperBlitter control/status | R/W |
-| `$8001007C` | Firmware version (bits 9:0); not in S011, from CT60 TOS source [S021] | R |
+| `$8001007C` | SuperVidel version register (firmware revision, bits 9:0); added in map v4, 2013 | R |
+| `$80010080` | SuperBlitter register FIFO write port / FIFO status; from FW revision 9 | R/W |
 
 ## `$8001007C`: Firmware version
 
-This register isn't in the 2012 register map [S011]. CT60 TOS 3.00 reads it at boot and displays `($8001007C) & $3FF` in decimal as the firmware number, e.g. "FW010". The other bits are undocumented. [S021] See [../programming/detection.md](../programming/detection.md).
+| Bits | 31:10 | 9:0 |
+|------|-------|-----|
+| Field | Reserved | Revision |
+
+"General revision of SV firmware"; read-only. Added in map v4 (2013-01-19). [S024] CT60 TOS 3.00 reads it at boot and displays `($8001007C) & $3FF` in decimal, e.g. "FW010". [S021] See [../programming/detection.md](../programming/detection.md).
 
 The VGA block (`$80010014`–`$80010030`) and the DVI block (`$80010034`–`$80010050`) are laid out the same way; the DVI block starts `$20` higher.
 
@@ -131,7 +136,7 @@ The offsets below are relative to the start of each block (VGA `$80010014`, DVI 
 |------|-------|------|---|
 | Field | Reserved | Video address | always 0 |
 
-This is a 27-bit byte address with bit 0 forced to 0, so the screen must start at an even address. See [memory-map.md](memory-map.md) for how it probably relates to CPU addresses.
+This is a 27-bit byte address with bit 0 forced to 0, so the screen must start at an even address. It is an **offset into the DDR2**: "When reading this add `0xA0000000` (DDR2 base address) to get the real screen pointer." [S024] So write `CPU address − $A0000000`; for example, a screen at the start of graphics RAM (`$A1000000`) is written as `$01000000`.
 
 ### +`$04`: Horizontal data begin/end
 
@@ -228,7 +233,7 @@ The SuperBlitter isn't compatible with the original Falcon BLiTTER [S001]. It wo
 | `$8001006C` | Source 2 line offset | as above, for src2 |
 | `$80010070` | Destination line offset | as above, for the destination |
 | `$80010074` | Mask / lines | bits 31:24: src1 address count mask; bits 23:16: src2 address count mask; bits 11:0: number of lines |
-| `$80010078` | Control/status | see below |
+| `$80010078` | Control/status | see below (incl. Replace RGB) |
 
 **Line offsets** are 27-bit values. A negative offset (counting backwards) is written with bit 26 set, i.e. 27-bit two's complement.
 
@@ -240,7 +245,10 @@ S011 is inconsistent about the alpha field at `$80010064` bits 31:24: its access
 
 | Bit | Name | Access | Reset |
 |-----|------|--------|-------|
-| 31:7 | Reserved | R | 0 |
+| 31:24 | Replace Red | R/W | 0 |
+| 23:16 | Replace Green | R/W | 0 |
+| 15:8 | Replace Blue | R/W | 0 |
+| 7 | Replace Enable | R/W | 0 |
 | 6 | Done interrupt flag | R/W | 0 |
 | 5 | Interrupt enable | R/W | 0 |
 | 4:1 | Blit mode | R/W | `%0000` |
@@ -248,6 +256,8 @@ S011 is inconsistent about the alpha field at `$80010064` bits 31:24: its access
 
 - **Start/Busy:** wait until bit 0 reads 0, set up the other registers, then write 1 to start. Bit 0 reads 1 while a blit is in progress.
 - **Interrupts:** with bit 5 set, the blitter raises an interrupt on vector `$C6` (address `$318`) when the job finishes and sets bit 6. The handler clears bit 6 by writing 0.
+- **Forced Done interrupt (since firmware rev 6):** writing 1 to bit 6 (with bit 5 set) while the blitter is **idle** raises a Done interrupt immediately. If the blitter is busy, nothing happens. [S024]
+- **Replace RGB (bits 31:7, map v3 2012-09-23):** with Replace Enable set, the RGB part of source 1 is replaced by Replace Red/Green/Blue in the 32-bit RGBA modes `%0011` and `%0111`. Source 1's alpha is still used, so this draws a solid colour through an alpha mask. **(the last part is inferred)** [S024]
 
 ### Blit modes (bits 4:1)
 
@@ -259,22 +269,45 @@ S011 notes that the codes are "not enumerated in the expected order": all the de
 | `%0001` | `dest = src1` where `src2 ≠ 0`, else `dest` unchanged. Compares **byte by byte**. For 8-bit chunky sprites, src1 = src2 = sprite data; for 16-bit sprites, src1 = sprite data and src2 = mask. |
 | `%0011` | `dest = src1 × src1.alpha + src2 × (256 − src1.alpha)`: 32-bit RGBA alpha blend using src1's per-pixel alpha |
 | `%0101` | `dest = src1` where bit 5 of the src1 16-bit word is 1 (bit 0 of green in 16-bit mode), else `dest` unchanged. Gives a colour-key transparency for 16-bit graphics. |
-| `%0111` | `dest = src1 × alpha_reg + src2 × (256 − alpha_reg)`: 32-bit alpha blend with one alpha value for the whole block, from `$80010064` bits 31:24 |
+| `%0111` | `dest = src1 × src1.alpha × alpha_reg + src2 × (256 − src1.alpha × alpha_reg)`: per-pixel alpha **combined with a global alpha** from `$80010064` bits 31:24 (since map v2, 2012-09-18; Rev 1 used `alpha_reg` alone). The formula is as printed: the products are presumably scaled back to 8 bits **(unverified)** [S024] |
 | all others | Reserved |
 
-Note on mode `%0111`: S011's description of `$80010064` says src2 is weighted by "255 − alpha", but the formula in the mode table uses 256. One of them is a typo in the source.
+Note on mode `%0111`: the description of `$80010064` says src2 is weighted by "255 − alpha", but the mode table uses 256. Rev 7 still has both, and still lists the alpha field as read-only ("R"). [S011][S024]
+
+### `$80010080`: SuperBlitter register FIFO (from FW revision 9)
+
+| Bit | Write | Read |
+|-----|-------|------|
+| 31:2 | FIFO data bits 31:2 | — |
+| 1 | FIFO data bit 1 | **FIFO full** (≥ 500 longwords queued) |
+| 0 | FIFO data bit 0 | **FIFO empty** (< 9 longwords queued) |
+
+This is a queue of complete blitter jobs. Each job is **nine longwords**: the values for `$80010058`, `$8001005C`, … `$80010078` in that order. When the FIFO holds at least nine longwords and the blitter is idle, it loads them into the registers and starts if the control word says so. [S024] So a driver can queue up to about 55 jobs without polling Busy. Check the full flag before writing. (Map v6, 2015-12-06.)
 
 ---
 
 ## Open questions
 
 - The emulated Videl register set (`$FFFF82xx`): which registers are supported, and where the 8-bit chunky control bit is.
-- Whether the 27-bit screen and blitter addresses are offsets from `$A0000000`. **(unverified)**
+- Whether the SuperBlitter address registers are also offsets from `$A0000000`, as the screen address registers are [S024]. **(likely, unverified)**
 - Whether the clock chip is a CDCE925 or a CDCE937.
 - Whether the SVEthLANa and Ethernet MAC have their own interrupt vector.
-- What changed in later firmware: S011 is Rev 1, from before boards shipped. At least one register (`$8001007C`, firmware version) was added later [S021].
+- Changes after map Rev 7 (2016) and firmware FW010, if any.
+
+## Map revision history [S024]
+
+| Map version | Date | Change |
+|-------------|------|--------|
+| 1 | 2012-03-12 | Initial release (= S011) |
+| 2 | 2012-09-18 | Blit mode `%0111` uses `src1.alpha × alpha_reg` |
+| 3 | 2012-09-23 | Replacement RGB values in `$80010078` |
+| 4 | 2013-01-19 | Firmware revision register `$8001007C` |
+| 5 | 2013-08-18 | Done INT flag can force an interrupt (firmware rev 6) |
+| 6 | 2015-12-06 | SuperBlitter FIFO port `$80010080` (firmware rev 9) |
+| 7 | 2016-07-13 | Ethernet MAC data buffers moved to DDR2 from FW v010 |
 
 [S001]: ../../sources/INDEX.md
 [S011]: ../../sources/INDEX.md
 [S012]: ../../sources/INDEX.md
 [S021]: ../../sources/INDEX.md
+[S024]: ../../sources/INDEX.md

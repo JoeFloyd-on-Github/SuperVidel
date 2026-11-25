@@ -1,6 +1,6 @@
 # Memory Map
 
-> Primary source: *SuperVidel Memory Map*, Rev 1, 2012-03-12 [S011]. This was the register reference for firmware of that time; later firmware may differ. Full register details are in [registers.md](registers.md).
+> Primary source: *SuperVidel Memory Map*, Rev 7, 2016-07-13 [S024], superseding Rev 1 of 2012-03-12 [S011]. Full register details are in [registers.md](registers.md).
 
 All addresses are 68060/CT60 physical addresses. All SV ranges are in the CT60's non-cacheable 060 bus slot window (`$80000000`–`$BFFFFFFF`) or in the Falcon shadow (`$FFxxxxxx`); see [../ct60/memory-map.md](../ct60/memory-map.md).
 
@@ -8,10 +8,10 @@ All addresses are 68060/CT60 physical addresses. All SV ranges are in the CT60's
 
 | Range | Size | Access | Contents | Ref |
 |-------|------|--------|----------|-----|
-| `$80010000`–`$8001007F` | 32 longs | Long only | SuperVidel control registers: general, clock PLL, VGA timing, DVI timing, JTAG, SuperBlitter (S011), plus the firmware version register at `$8001007C` (S021) | [S011][S021] |
+| `$80010000`–`$80010083` | 33 longs | Long only | SuperVidel control registers: general, clock PLL, VGA timing, DVI timing, JTAG, SuperBlitter, version register (`$8001007C`), SuperBlitter FIFO (`$80010080`, FW 9+) | [S024] |
 | `$80012000`–`$80012053` | 84 bytes | Long, R/W | Ethernet MAC core control registers | [S011] |
 | `$80012400`–`$800127FF` | 1 KB | Long, R/W | Ethernet MAC buffer descriptors | [S011] |
-| `$80012800`–`$80013FFF` | 6 KB | Long, R/W | Ethernet MAC packet data buffers | [S011] |
+| `$80012800`–`$80013FFF` | 6 KB | Long, R/W | Ethernet MAC packet data buffers. **Removed from FW v010**; the buffers then live in DDR2 | [S011][S024] |
 | `$A0000000`–`$A0FFFFFF` | 16 MB | — (none listed) | Shadow of ST-RAM in DDR2 SDRAM | [S011] |
 | `$A1000000`–`$A7FFFFFF` | 112 MB | Byte/Word/Long, R/W | General-purpose graphics RAM in DDR2 SDRAM | [S011] |
 | `$FFFF8200` area | — | — | Emulated Videl registers (see below) | [S001][S011] |
@@ -26,7 +26,7 @@ The two DDR2 ranges add up to 128 MB, matching the 2 × 512 Mbit DDR2 chips on t
 
 ### Screen address registers vs CPU addresses
 
-The VGA/DVI screen address registers and the SuperBlitter address registers are 27 bits wide (bits 26:0), which spans exactly 128 MB. That suggests they're offsets into the DDR2 (so CPU address = `$A0000000` + offset), but S011 doesn't say so. **(unverified)**
+The VGA/DVI screen address registers hold an **offset into the DDR2**: CPU address = `$A0000000` + register value. [S024] They are 27 bits wide (bits 26:0), which spans exactly 128 MB. The SuperBlitter address registers have the same width and presumably the same base, but the map doesn't say so. **(unverified)**
 
 ## Emulated Videl registers
 
@@ -51,10 +51,12 @@ The Ethernet MAC is inside the SuperVidel FPGA [S010]; the SVEthLANa daughterboa
 
 - Data buffers: 3 × 2048-byte blocks forming 4 packet buffers of 1536 bytes each.
 - **Write the data buffers with longword accesses only.** Byte or word writes corrupt data. [S011]
+- **From firmware v010 these on-chip buffers are gone** and packet data resides in DDR2 RAM instead. [S024] That's when SVEthLANa transmit moved to DMA from DDR2, with the bugs described in [../software/drivers.md](../software/drivers.md#fw010-dma-hardware-issues). [S013] Where in DDR2 the buffers live, and how the driver tells the MAC, isn't in the map.
 
 [S001]: ../../sources/INDEX.md
 [S010]: ../../sources/INDEX.md
 [S011]: ../../sources/INDEX.md
+[S024]: ../../sources/INDEX.md
 [S013]: ../../sources/INDEX.md
 [S021]: ../../sources/INDEX.md
 [S022]: ../../sources/INDEX.md

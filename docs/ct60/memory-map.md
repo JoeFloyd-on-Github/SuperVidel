@@ -49,6 +49,8 @@ The SV's addresses (see [../hardware/memory-map.md](../hardware/memory-map.md)) 
 | `$A0000000`–`$A7FFFFFF` (DDR2: ST-RAM shadow + graphics RAM) | 060 bus slot, no cache / no burst |
 | `$FFFF8200…` (emulated Videl), `$FFFF9800` (palette) | Falcon 24-bit shadow, via the [hardware emulation window](bus-slot.md#hardware-emulation-window) |
 
+**Sharing the slot:** insane's CT60 boot 1.05 limits CTPCI memory space to `$C0000000`–`$E0000000` "this way Ethernat+SuperVidel+CTPCI work". [S030] That keeps the CTPCI out of the `$80000000`–`$BFFFFFFF` window the SV and EtherNat decode. **(inferred)**
+
 The CT60 also defines a **cacheable, burst-capable** slot window at `$40000000`–`$7FFFFFFF`. Whether the SV decodes its RAM there too isn't documented. The `pmmu_boost` option of the SV drivers ("higher CPU↔VRAM bandwidth") presumably changes the 060's cache mode for VRAM through the PMMU. **(inferred)** The CT60 CPLD changelog adds that move16 bursts work on all expansion-slot addresses from the release after V5M/V5E. [S019]
 
 ## CPLD registers
@@ -83,3 +85,4 @@ The 68060's on-die sensor (THERM0/THERM1) is a resistor of about 780 Ω at 25 °
 [S019]: ../../sources/INDEX.md
 [S021]: ../../sources/INDEX.md
 [S022]: ../../sources/INDEX.md
+[S030]: ../../sources/INDEX.md
