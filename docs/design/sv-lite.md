@@ -198,7 +198,7 @@ Plan for these: run the stock drivers on an original board with a bus logic anal
 
 The SV decodes Videl register writes and translates them into its own timing ("Videl regs and translation" [S010]), and Falcon software that never touches the SV registers depends on it. SV-Lite takes this from existing open work instead of writing it from scratch:
 
-- **Hatari** emulates the Falcon Videl in software, and the **Re-Falcon** project is building a Videl FPGA core based on that behaviour. (Stated by the project owner, 2026-11-25; neither is in `sources/` yet. **TODO:** add Hatari's Videl source and the Re-Falcon repository as sources, then cite them here.)
+- **Hatari** emulates the Falcon Videl in software [S035], and the **Re-Falcon** project is building a Videl FPGA core (stated by the project owner, 2026-11-25; **TODO:** add the Re-Falcon repository as a source). The detailed scope, based on Hatari's code, is in [videl-compat.md](videl-compat.md).
 - **Plan:** use the Re-Falcon Videl core as the Videl block, with three adaptations:
   1. **Register front end:** connect it to the SV-Lite bus slave, which latches Videl writes in the emulation window without asserting /TA (§3.3), so the real Videl still gets them [S022].
   2. **Memory back end:** fetch from the ST-RAM shadow at `$A0000000` in DDR3 rather than from Falcon ST-RAM.
@@ -299,3 +299,4 @@ So a 10-off batch comes to about **$95–100** with both cables, and a 5-off bat
 [S020]: ../../sources/INDEX.md
 [S022]: ../../sources/INDEX.md
 [S024]: ../../sources/INDEX.md
+[S035]: ../../sources/INDEX.md
