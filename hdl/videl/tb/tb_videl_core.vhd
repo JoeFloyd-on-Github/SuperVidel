@@ -18,12 +18,24 @@ use work.videl_pkg.all;
 entity tb_videl_core is
   generic (
     VECTORS  : string := "../../tools/videl_ref/vectors.txt";
-    EXPECTED : string := "../../tools/videl_ref/expected.txt"
+    EXPECTED : string := "../../tools/videl_ref/expected.txt";
+    -- Clock half-periods in ps (GHDL cannot override time generics with -g). Equal values run both domains from one clock (the
+    -- original set-up). Different values make pix_clk an unrelated clock and
+    -- exercise the bus_clk -> pix_clk crossing (e.g. 10000 / 3367 for a
+    -- 50 MHz bus and a 148.5 MHz 1080p60 pixel clock).
+    BUS_HALF_PS : positive := 5000;
+    PIX_HALF_PS : positive := 5000;
+    -- If set, write a per-cycle trace of the core's ports to TRACE & "_in.txt"
+    -- and TRACE & "_out.txt" (one binary word per bus_clk cycle, U/X as x).
+    -- syn/gatesim.sh replays it into the routed netlist. Needs one clock
+    -- (BUS_HALF_PS = PIX_HALF_PS).
+    TRACE       : string := ""
   );
 end entity;
 
 architecture sim of tb_videl_core is
   signal clk       : std_logic := '0';
+  signal pix_clk   : std_logic := '0';
   signal rst       : std_logic := '1';
   signal monitor   : std_logic_vector(1 downto 0) := MON_VGA;
   signal wr        : std_logic := '0';
@@ -87,7 +99,8 @@ architecture sim of tb_videl_core is
   end function;
 begin
 
-  clk <= not clk after 5 ns when not done;
+  clk     <= not clk     after BUS_HALF_PS * 1 ps when not done;
+  pix_clk <= not pix_clk after PIX_HALF_PS * 1 ps when not done;
 
   dut : entity work.videl_core
     port map (bus_clk => clk, rst => rst, monitor => monitor, wr => wr,
@@ -97,7 +110,7 @@ begin
               mem_req => mem_req, mem_addr => mem_addr, mem_words => mem_words,
               mem_ack => mem_ack, mem_valid => mem_valid, mem_data => mem_data,
               mem_ready => mem_ready,
-              pix_clk => clk, in_valid => in_valid, in_border => in_border,
+              pix_clk => pix_clk, in_valid => in_valid, in_border => in_border,
               in_bank => in_bank, in_x => in_x,
               out_valid => out_valid, out_rgb => out_rgb);
 
@@ -123,6 +136,61 @@ begin
       mem_valid <= '0';
     end if;
   end process;
+
+  -- Port trace for gate-level simulation. Sampled at the falling edge:
+  -- inputs are what the core latches at the next rising edge, outputs are
+  -- what it drives after the last one.
+  g_trace : if TRACE'length > 0 generate
+    process
+      file ft_in, ft_out : text;
+      variable l : line;
+      function bits(v : std_logic_vector) return string is
+        variable r : string(1 to v'length);
+        variable k : natural := 1;
+      begin
+        for i in v'range loop
+          case v(i) is
+            when '0' | 'L' => r(k) := '0';
+            when '1' | 'H' => r(k) := '1';
+            when others    => r(k) := 'x';
+          end case;
+          k := k + 1;
+        end loop;
+        return r;
+      end function;
+      function bit1(b : std_logic) return std_logic_vector is
+        variable v : std_logic_vector(0 downto 0);
+      begin
+        v(0) := b;
+        return v;
+      end function;
+    begin
+      assert BUS_HALF_PS = PIX_HALF_PS
+        report "TRACE needs a single clock (BUS_HALF_PS = PIX_HALF_PS)" severity failure;
+      file_open(ft_in,  TRACE & "_in.txt",  write_mode);
+      file_open(ft_out, TRACE & "_out.txt", write_mode);
+      while not done loop
+        wait until falling_edge(clk);
+        -- 107 bits, same order as the input ports of syn/videl_synth_top
+        write(l, bits(bit1(rst) & monitor & bit1(wr) & std_logic_vector(addr) &
+                      be & wdata & bit1(line_start) &
+                      std_logic_vector(to_unsigned(line_y, 11)) & bit1(line_bank) &
+                      bit1(mem_ack) & bit1(mem_valid) & mem_data &
+                      bit1(in_valid) & bit1(in_border) & bit1(in_bank) &
+                      std_logic_vector(to_unsigned(in_x, 11))));
+        writeline(ft_in, l);
+        -- 71 bits, same order as the output ports of syn/videl_synth_top
+        write(l, bits(fold_geom(geom) & bit1(line_done) & bit1(mem_req) &
+                      std_logic_vector(mem_addr) &
+                      std_logic_vector(to_unsigned(mem_words, 11)) &
+                      bit1(mem_ready) & bit1(out_valid) & out_rgb));
+        writeline(ft_out, l);
+      end loop;
+      file_close(ft_in);
+      file_close(ft_out);
+      wait;
+    end process;
+  end generate;
 
   stim : process
     file fv, fe     : text;
@@ -187,13 +255,14 @@ begin
 
     procedure pixel(x : natural; border : std_logic; rgb : out std_logic_vector(23 downto 0)) is
     begin
+      wait until rising_edge(pix_clk);
       in_valid  <= '1';
       in_border <= border;
       in_bank   <= '0';
       in_x      <= x;
-      wait until rising_edge(clk);
+      wait until rising_edge(pix_clk);
       in_valid  <= '0';
-      wait until rising_edge(clk) and out_valid = '1';
+      wait until rising_edge(pix_clk) and out_valid = '1';
       rgb := out_rgb;
     end procedure;
   begin
@@ -253,8 +322,10 @@ begin
         wr <= '0';
       elsif tok(1 to tlen) = "end" then
         tests := tests + 1;
-        wait until rising_edge(clk);
-        wait until rising_edge(clk);
+        -- let the last write reach geom: register shadow + 3 decode stages
+        for i in 1 to 4 loop
+          wait until rising_edge(clk);
+        end loop;
         -- expected line
         readline(fe, le);
         read_word(le, tok, tlen);

@@ -2,6 +2,8 @@
 # Run the Videl core testbench in GHDL (VHDL-2008).
 # Regenerates the Hatari golden output first (needs a C compiler).
 # Set GHDL to the ghdl binary if it isn't on PATH.
+# Extra arguments go to the simulation, e.g. two unrelated clocks:
+#   hdl/videl/sim.sh -gBUS_HALF_PS=10000 -gPIX_HALF_PS=3367
 set -e
 cd "$(dirname "$0")"
 make -C ../../tools/videl_ref expected.txt
@@ -17,4 +19,4 @@ done
 $GHDL -e --std=08 tb_videl_core
 $GHDL -r --std=08 tb_videl_core --ieee-asserts=disable \
   -gVECTORS=../../../tools/videl_ref/vectors.txt \
-  -gEXPECTED=../../../tools/videl_ref/expected.txt
+  -gEXPECTED=../../../tools/videl_ref/expected.txt "$@"

@@ -1,0 +1,8 @@
+# Clock targets for place-and-route timing (no pin locations: nextpnr
+# places I/O freely, which is fine for a timing estimate of the core).
+# bus_clk: CT60 bus side. 100 MHz is a conservative stand-in for the
+#          (unverified) CT63 bus clock; the core only needs to keep up
+#          with bus writes and the ST-RAM shadow.
+# pix_clk: 148.5 MHz = 1920x1080@60 (CEA-861), the SV-Lite top mode.
+FREQUENCY PORT "bus_clk" 100 MHz;
+FREQUENCY PORT "pix_clk" 148.5 MHz;

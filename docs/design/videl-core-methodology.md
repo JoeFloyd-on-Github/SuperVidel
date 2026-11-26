@@ -18,6 +18,7 @@
 10. [Traps hit and how they were handled](#10-traps-hit-and-how-they-were-handled)
 11. [How to extend the work](#11-how-to-extend-the-work)
 12. [What is not verified](#12-what-is-not-verified)
+13. [Two clocks, synthesis and gate-level timing simulation](#13-two-clocks-synthesis-and-gate-level-timing-simulation)
 
 ---
 
@@ -42,11 +43,21 @@ hdl/videl/
     rtl/videl_pixel.vhd    line buffer → palette → RGB24
     rtl/videl_core.vhd     top level, RAMs
     tb/tb_videl_core.vhd   self-checking testbench
-    sim.sh                 one-command build + run
-    build/                 GHDL work library (gitignored)
+    sim.sh                 one-command build + run (extra args go to the simulation)
+    syn/videl_synth_top.vhd   synthesis/timing wrapper (§13)
+    syn/videl.lpf          clock targets for nextpnr
+    syn/synth.sh           GHDL → Yosys → nextpnr: resources, static timing, SDF
+    syn/tb_gate.v          Verilog replay bench for netlists
+    syn/gatesim.sh         pre-route, routed and SDF-timed netlist simulation
+    build/                 GHDL work library, traces, netlists, logs (gitignored)
 tools/get-ghdl.sh         recreate the GHDL sandbox
 tools/ghdl.sh             run the sandboxed GHDL
 tools/ghdl/               the sandbox itself: .debs + unpacked tree (gitignored, 12 MB)
+tools/get-fpga-tools.sh   recreate the FPGA tool sandbox (Yosys, nextpnr-ecp5, Icarus)
+tools/fpga.sh             run a tool from that sandbox
+tools/fpga/               that sandbox (gitignored)
+tools/ecp5_sim_compat.py  patched copy of Yosys's ECP5 cell models for routed netlists
+tools/sdf_icarus.py       turns nextpnr's SDF into something Icarus can simulate
 ```
 
 The method is **differential testing**. Hatari's own C code, compiled unchanged, is the oracle. The VHDL core receives exactly the same register writes, and every value it derives must match exactly.
@@ -64,8 +75,8 @@ hdl/videl/sim.sh
 Skip `get-ghdl.sh` if `tools/ghdl/` already exists. A successful run ends with:
 
 ```
-../tb/tb_videl_core.vhd:312:5:@61165ns:(report note): 9 tests, 0 errors
-../tb/tb_videl_core.vhd:315:5:@61165ns:(report note): PASSED
+../tb/tb_videl_core.vhd:383:5:@62555ns:(report note): 9 tests, 0 errors
+../tb/tb_videl_core.vhd:386:5:@62555ns:(report note): PASSED
 ```
 
 ---
@@ -337,7 +348,7 @@ Library-path traps (T1–T3 in §10):
 
 ## 8. The VHDL testbench
 
-`hdl/videl/tb/tb_videl_core.vhd`, VHDL-2008. One clock (10 ns) drives both `bus_clk` and `pix_clk`.
+`hdl/videl/tb/tb_videl_core.vhd`, VHDL-2008. By default one clock (10 ns) drives both `bus_clk` and `pix_clk`; §13.1 covers two clocks.
 
 ### 8.1 Flow per test
 
@@ -442,6 +453,20 @@ The last one isn't detected because integer truncation in the right-border formu
 | T18 | Harness `cpu_write` dispatch for words | A word write covering `$8201` must call the byte handler for the odd byte | Non-palette word writes dispatch both `a` and `a+1`. This reconstructs Hatari's `ioMemTabFalcon.c` (not in sources), see §12 |
 | T19 | Shell working directory drifting between commands | Relative paths broke | `sim.sh` does `cd "$(dirname "$0")"`; testbench generics use paths relative to `hdl/videl/build/` (`../../../tools/videl_ref/…`) |
 | T20 | Writing into `sources/` | The project rules forbid modifying sources | The harness only reads `sources/` through `-I`; all stubs and generated files live in `tools/` |
+| T21 | `ghdl -r … -gBUS_HALF=10ns` on a `time` generic | `unhandled override for generic "BUS_HALF"` | GHDL can only override scalar generics from the command line: the clock generics are integers in ps (`BUS_HALF_PS`) |
+| T22 | `-gTRACE=…` while a generate block is labelled `trace` | `identifier "trace" already used` (VHDL is case-insensitive) | Label `g_trace` |
+| T23 | Function `geom_fold` and the wrapper port `geom_fold` | `can't match indexed name with type array type` | The port hides the function: renamed the function `fold_geom` |
+| T24 | Ubuntu `nextpnr-ecp5` run from the sandbox | `unrecognised option '--um5g-45k'`. No device options exist at all; `--help` doesn't list them | The binary looks for its chip database only at the absolute `/usr/share/nextpnr/` and drops the device options when it isn't there. `tools/fpga.sh` lays the sandbox's `share/` over `/usr/share` in a private namespace (`unshare -rm` + read-only overlayfs). A plain bind mount fails because the mount point doesn't exist |
+| T25 | No Yosys GHDL plugin package on Ubuntu | `yosys -m ghdl` unavailable | Not needed: `ghdl --synth --out=verilog` writes a Verilog netlist that Yosys reads |
+| T26 | The design's one multiplier mapped to `MULT18X18D` | No simulation model in Yosys 0.52 | `synth_ecp5 -nodsp` (the multiplier goes to LUTs; timing barely moves) |
+| T27 | Routed netlist simulated with Yosys's own `cells_sim.v` | Mostly x, then wrong values | Seven model problems, each found by tracing the first diverging net (§13.4). Fixed in a patched copy (`tools/ecp5_sim_compat.py`) |
+| T28 | `write_verilog` without `-norename` | 27 SDF sinks not found; nextpnr's `$nextpnr_CCU2C_44$…` cells appear as `_031_` | Yosys renames `$`-names unless `-norename` is given; the SDF uses the original names |
+| T29 | Icarus `$sdf_annotate` on nextpnr's SDF | `SDF ERROR: Invalid/malformed INTERCONNECT`, `Syntax error in CELL`; with that fixed, wire delays silently ignored | Icarus 12 ignores INTERCONNECT, rejects PORT and bare `.` in instance names. `tools/sdf_icarus.py` moves wire delays into the netlist and escapes names (§13.5) |
+| T30 | Escaped identifier at the end of an inserted `assign` | `syntax error` at `\c_geom[118];` | An escaped identifier runs to the next whitespace and swallows the `;`. Write `\c_geom[118] ;` |
+| T31 | Replay bench inputs changed 500 ps after the clock edge (later: 1000 ps) | 27 mismatches at every clock period, independent of frequency. After the pipelined design was placed differently, 1000 ps gave 243 | A hold race: the inputs reach the input registers before the delayed clock does, and the clock insertion delay depends on placement. `HOLD` now defaults to `PERIOD/2` (inputs change at the falling edge). A failure that doesn't move with the period is a hold problem, not a setup problem |
+| T34 | Comparing `out_rgb` on every cycle | 3 isolated mismatches, only with wire delays, each in a cycle that writes palette entries 0–15 | The palette RAM is read on every pixel clock, even with `in_valid` = 0. A bus-side write and a pixel-side read of the same entry in the same cycle is a two-clock RAM collision: RTL returns the old value, and the gate run may return the new one, depending on clock skew. `out_rgb` is only meaningful with `out_valid`, so the bench now checks it only then |
+| T32 | Expected bits that are `U` in the RTL trace (line buffer never written) | Spurious mismatches | The trace writes them as `x`, and the bench masks `x` bits |
+| T33 | Comparing the first cycles after power-up | 43 mismatches before the first reset has propagated | VHDL integers start at 0, Verilog `reg`s at x: the bench ignores the first `WARMUP` = 50 cycles |
 
 ---
 
@@ -474,9 +499,9 @@ Fetch the new files into a **new** directory named with the new commit, add a ne
 
 Fetch Hatari's `conv_gen.c` (and `video.c` for the base address) as sources, and extend the harness to call `VIDEL_renderScreen` with a real `STRam` image and a captured output buffer. Then compare whole frames, including true colour.
 
-### Synthesis
+### Synthesis and timing
 
-Not done yet. Next step: run Yosys `synth_ecp5` + nextpnr-ecp5 on `videl_core` (through ghdl-yosys-plugin, which needs a GHDL build with `libghdl`; the mcode `.deb` in the sandbox isn't enough).
+Done: see §13. After any RTL change, rerun all three levels: `sim.sh` (against Hatari), `sim.sh -gBUS_HALF_PS=10000 -gPIX_HALF_PS=3367` (two clocks), and `syn/synth.sh` followed by `syn/gatesim.sh` (netlists). New ports of `videl_core` must also be added to `syn/videl_synth_top.vhd`, the `TRACE` process in the testbench, and the port map and bit slices in `syn/tb_gate.v`, in the same order in all three.
 
 ---
 
@@ -488,8 +513,164 @@ Not done yet. Next step: run Yosys `synth_ecp5` + nextpnr-ecp5 on `videl_core` (
 | Harness byte/word/long dispatch | Reconstructed; Hatari's `ioMemTabFalcon.c` and `ioMem.c` aren't in the sources |
 | True-colour pixel format (RGB 5:6:5) | Not checked against anything; only the TC border colour is |
 | Hatari ≠ hardware | Hatari's own comments flag h-scroll/line-offset, 1-plane, VFC and raster effects ([videl-compat.md §5](videl-compat.md#5-what-hatari-does-not-model)). Matching Hatari is necessary but not sufficient |
-| Synthesis, timing, resources on ECP5 | Not done |
-| Clock-domain crossing of the geometry | By design assumption only (changes during blanking) |
+| Synthesis, timing, resources on ECP5 | Done for the LFE5UM5G-45F (§13). With the decode pipelined, `bus_clk` reaches 129 MHz (target 100) and `pix_clk` 236 MHz (1080p60 needs 148.5). Pin placement is automatic, not the SV-Lite pinout |
+| Clock-domain crossing of the geometry | By design assumption only (changes during blanking). RTL simulation with two unrelated clocks passes (§13.1), but RTL simulation cannot show metastability, and nextpnr times the crossing as an ordinary path (4.96 ns) |
+| Gate-level model fidelity | The Yosys 0.52 cell models needed 8 fixes for nextpnr 0.9 netlists (§13.4). Every fix is checked by the zero-delay routed run matching the RTL, but the `DP16KD` model covers only the configurations this design uses |
+| Gate-level timing coverage | Only as good as the trace: before pipelining, the SDF run passed at 100 MHz although static timing failed at 72 MHz, because the trace doesn't exercise the slowest path. Static timing is the sign-off; the SDF run is a cross-check |
+
+
+---
+
+## 13. Two clocks, synthesis and gate-level timing simulation
+
+Three further levels of checking sit on top of the Hatari comparison. Each depends on the level before it, and each has its own reference:
+
+| Level | Reference | Command | Result (2026-11-26) |
+|-------|-----------|---------|--------------------|
+| RTL, one clock | Hatari (`expected.txt`) | `hdl/videl/sim.sh` | 9 tests, 0 errors |
+| RTL, two unrelated clocks | Hatari | `hdl/videl/sim.sh -gBUS_HALF_PS=10000 -gPIX_HALF_PS=3367` | 9 tests, 0 errors (also 3367/10000 and 7000/13001) |
+| Synthesis + place and route | Clock constraints | `hdl/videl/syn/synth.sh` | `pix_clk` 236 MHz (target 148.5 MHz, pass); `bus_clk` 129 MHz (target 100 MHz, pass). Before the decode was pipelined (§13.3.1): 72 MHz, fail |
+| Pre-route netlist, zero delay | RTL trace | `hdl/videl/syn/gatesim.sh` (step 2) | 6,204 cycles, 0 mismatches |
+| Routed netlist, zero delay | RTL trace | `gatesim.sh` (step 3) | 6,204 cycles, 0 mismatches |
+| Routed netlist + SDF delays | RTL trace | `gatesim.sh [PERIOD_PS]` (step 4) | 0 mismatches at 20, 10 and 8 ns; mismatches at 6.734 ns (above `bus_clk`'s 129 MHz, §13.7) |
+
+The tools are Yosys 0.52, nextpnr-ecp5 0.9 and Icarus Verilog 12.0, from the Ubuntu packages, unpacked into `tools/fpga/` the same way as GHDL (§7): `tools/get-fpga-tools.sh` downloads them and `tools/fpga.sh <tool> …` runs them. GHDL comes from the sandbox (§7) or a system install; `GHDL=ghdl` selects the latter.
+
+### 13.1 Two clocks in RTL simulation
+
+The testbench used to drive `bus_clk` and `pix_clk` from one signal. It now has two generics, `BUS_HALF_PS` and `PIX_HALF_PS` (half-periods in ps). They default to equal values, which reproduces the old single-clock run. Different values make `pix_clk` an unrelated clock. The pixel reads (`pixel()` procedure) now synchronise to `pix_clk`; everything else stays in `bus_clk`.
+
+This checks that the core still produces Hatari's results when the line buffer and palette are written in one clock domain and read in another. It doesn't check metastability: RTL simulation can't produce it. The geometry record still crosses without synchronisers (§12).
+
+### 13.2 The synthesis wrapper
+
+`videl_core` is a block inside the SV-Lite FPGA, not a chip top level. Its `geom` record alone is about 120 bits, and with it the ports total about 300 bits, more than the 203 user I/O. `syn/videl_synth_top.vhd` exists only to get the core through place and route:
+
+- every port except `geom` goes to a pin **through a register**, so all pin paths are register-to-register and nextpnr reports the core's internal timing, not pad timing;
+- `geom` is XOR-folded (`fold_geom` in `videl_pkg`) into 8 registered bits. A bit that nothing reads would be optimised away together with its logic; the fold keeps all of the decode alive. It costs a few LUTs that the real design won't have.
+
+That comes to 180 pins, including the 2 clocks; nextpnr places 180 `TRELLIS_IO`.
+
+The registers move every core input one cycle later and every output one cycle later. `tb_gate.v` accounts for this (§13.5).
+
+### 13.3 Synthesis and place and route (`syn/synth.sh`)
+
+1. **GHDL → Verilog.** `ghdl --synth --std=08 --out=verilog videl_synth_top`. GHDL recognises the five RAMs (`pal0`–`pal3`, `lbuf`) and writes them as Verilog memories. No Yosys GHDL plugin is needed (T25).
+2. **Yosys** `synth_ecp5 -nodsp`. `-nodsp` keeps the one multiplier out of a `MULT18X18D`, which has no simulation model (T26).
+3. **nextpnr-ecp5** `--um5g-45k --package CABGA381 --speed 8` with `syn/videl.lpf`, which holds clock targets only: `bus_clk` 100 MHz (a stand-in; the CT63 bus clock is **unverified**) and `pix_clk` 148.5 MHz (1920×1080@60). Pins are placed automatically. `--timing-allow-fail` lets the flow finish and write the netlist even when timing fails, so the result is reported rather than stopping the script. Outputs: `routed.json`, `videl_routed.sdf`, `report.json`, `nextpnr.log`.
+4. **Yosys** `read_json routed.json; write_verilog -noattr -norename videl_routed.v` (T28).
+
+Resources (place and route, LFE5UM5G-45F):
+
+| Resource | Used | Of | Note |
+|----------|------|----|------|
+| TRELLIS_COMB (LUT4 halves) | 2,366 | 43,848 | 5% (2,252 before pipelining) |
+| TRELLIS_FF | 1,221 | 43,848 | 3%, including 178 wrapper registers (107 in, 71 out) and about 290 decode pipeline registers |
+| DP16KD (18 kbit block RAM) | 7 | 108 | 4 for the line buffer, 3 for the palette |
+| TRELLIS_IO | 180 | 245 | wrapper only; not the real pinout |
+
+Timing:
+
+- **`pix_clk`: 236 MHz, PASS** at 148.5 MHz. The worst path is the output register → `out_rgb` pad route in the wrapper, not core logic.
+- **`bus_clk`: 129 MHz, PASS** at 100 MHz. The worst path now starts at a wrapper input register and ends in the line fetch (`videl_fetch`), 2.35 ns of logic and 5.40 ns of routing.
+
+Whether 100 MHz is the right target depends on the CT63 bus clock (**unverified**). The SV-Lite design study asks for timing at 110 MHz (risk R2 in [sv-lite.md](sv-lite.md)), and 129 MHz clears that too.
+
+#### 13.3.1 Pipelining the mode decode
+
+The first run reached only **72 MHz** on `bus_clk`. The critical path ran from the register shadow (`videl_regs`) through `videl_decode` into the geometry register: Hatari's whole mode decode, with its variable shifts, border adders, `/2` steps and the `drawable` sum, was evaluated in one cycle.
+
+The decode result only changes when a register is written, and the core uses one geometry per frame (§12), so extra latency costs nothing. `videl_pkg` now splits the decode into three stage functions, and `videl_core` registers between them:
+
+| Stage | Function | Computes |
+|-------|----------|----------|
+| 1 | `decode_s1` | bpp, cycles per pixel and divider, X size, `hdb_off`/`hde_off`, raw vertical differences (clamped at 0), pass-through fields |
+| 2 | `decode_s2` | left/right borders (`lb`/`rb`, truncation, shift by cycles per pixel), vertical halvings |
+| 3 | `decode_s3` | `drawable` (the 32 × 32 test) |
+
+`videl_decode` is now defined as `decode_s3(decode_s2(decode_s1(…)))`, so a single-cycle use of the function still gives exactly the staged result. A write takes 4 `bus_clk` cycles to reach `geom` (shadow register + 3 stages); the testbench waits 4 cycles after the last write of a test instead of 2.
+
+Result: 72 → 129 MHz, at a cost of about 110 LUTs and 290 flip-flops. All 9 Hatari vectors still pass, with one clock and with two.
+
+### 13.4 Making the routed netlist simulate (`tools/ecp5_sim_compat.py`)
+
+Yosys's `share/yosys/ecp5/cells_sim.v` is the simulation library for ECP5 cells. With Yosys 0.52 and nextpnr 0.9 from Ubuntu it doesn't simulate a routed netlist correctly. The script writes a patched copy to `build/syn/cells_sim_compat.v`; the Yosys file itself is untouched.
+
+Each problem was found by simulating the post-synthesis netlist (`synth.json` → `write_verilog`, which passes) and the routed netlist side by side, dumping both to VCD, and following the earliest diverging net back to the cell whose inputs agree and whose output doesn't:
+
+| # | Problem | Symptom | Fix |
+|---|---------|---------|-----|
+| 1 | Unused fabric inputs are left unconnected; nextpnr records the needed value in `*MUX` parameters, for example `CSA0MUX="INV"` on an open pin to get 0 | `z` into a LUT → x | An open LUT input (`A`–`D`) or RAM pin reads **1**, which is what the RAMs' "INV on an open pin" settings imply. Checked both ways: reading 0 gives mismatches on every cycle, reading 1 matches |
+| 1b | Open carry-in `FCI` (25 chain starts) and open LUT5 select `M` | x along carry chains | Model reads open `FCI` as 0 and open `M` as 1. **Not confirmed:** for this design every combination of 0 and 1 matches the RTL, so the trace doesn't distinguish them |
+| 2 | `TRELLIS_FF` lacks nextpnr's `SD` parameter: `SD="0"` loads from `M`, `"1"` from `DI` | 421 FFs load an unconnected `DI` | `D = (SD == "0") ? M : DI` |
+| 3 | `TRELLIS_IO` lacks `DATAMUX_ODDR`/`DATAMUX_MDDR` | Elaboration error | Parameters added (only `"PADDO"` is used) |
+| 4 | No `DCCA` (global clock buffer) model | Elaboration error | Added |
+| 5 | `DP16KD` is an empty shell (ports and parameters only) | `out_rgb` always x | Behavioural model for equal port widths 1/2/4/9/18, NOREG/OUTREG, the three write modes, CS decode, output reset, 18-bit byte enables. Non-zero `INITVAL` is reported, not loaded |
+| 6 | `TRELLIS_COMB` CCU2 mode declares a local `wire FCO = …` that **shadows the `FCO` output port** | Every carry between slices is `z` | `assign FCO = …` |
+| 7 | `TRELLIS_COMB` chooses its `OFX` mux (L6MUX21 or PFUMX) by `IS_Z1`, which nextpnr doesn't write | Wide-LUT outputs wrong (one `geom_fold` bit) | Use the L6MUX when `FXA`/`FXB` are connected |
+| 8 | No path delays on `TRELLIS_COMB`, `DP16KD` and `DCCA`; `TRELLIS_FF`'s are conditional and name `DI` | IOPATH delays can't bind | Plain `specify` paths for every IOPATH nextpnr writes |
+
+The script asserts that each pattern it patches is present, so a different Yosys version stops with "model changed" instead of silently producing a wrong library.
+
+**Proof that the patched library is right for this design:** `gatesim.sh` step 3 simulates the routed netlist at zero delay against the RTL trace, and it matches on every checked cycle. Run that step first whenever the tools or the design change.
+
+### 13.5 Trace replay (`tb_videl_core` `TRACE` → `syn/tb_gate.v`)
+
+The VHDL testbench can't drive a Verilog netlist in Icarus, and rewriting it in Verilog would duplicate the Hatari comparison. Instead:
+
+1. `sim.sh -gTRACE=trace` writes `build/trace_in.txt` and `build/trace_out.txt`. Each line is one `bus_clk` cycle, sampled at the falling edge: 107 input bits (what the core latches at the next rising edge) and 71 output bits (`fold_geom(geom)`, then the other outputs, in the wrapper's port order). `U` and other unknowns are written as `x`. A trace needs one clock (`BUS_HALF_PS = PIX_HALF_PS`).
+2. `tb_gate.v` loads the trace with `$readmemb` and drives the **wrapper**. With clock edges numbered from 1: the pins after edge *m* carry `trace_in[m]`, which the core latches at *m*+2 after the input register; outputs read just before edge *m*+1 must equal `trace_out[m−2]`. Expected `x` bits aren't checked, nor is `out_rgb` while the expected `out_valid` is 0 (T34), nor the first `WARMUP` = 50 cycles (T33).
+3. Plusargs: `+in=`, `+out=`, `+sdf=`, `+vcd=N` (dump all nets for N cycles, for debugging). Parameters: `PERIOD`, `HOLD` (default `PERIOD/2`, i.e. the falling edge, T31), `SAMPLE` (100 ps), `WARMUP`, `SHOW`. Compile the routed netlist with `-DDUT=top`, because nextpnr renames the top level.
+
+The pre-route netlist run (step 2) needs no models. It checks both the trace alignment and that GHDL's synthesis preserved the behaviour.
+
+### 13.6 Timing annotation (`tools/sdf_icarus.py`)
+
+nextpnr's SDF has three kinds of entry: about 9,400 INTERCONNECT (wire delays, per sink pin), about 9,700 IOPATH (cell delays) and about 4,200 SETUPHOLD checks. Small test cases showed that Icarus 12:
+
+- parses INTERCONNECT and **silently ignores** it;
+- rejects `PORT` delays with a syntax error;
+- rejects nextpnr's instance names, which contain bare `.` under `DIVIDER /`, but accepts them with the dots escaped;
+- prints "Cannot find core in scope" for those escaped names and still applies the delays;
+- doesn't evaluate timing checks.
+
+So the script:
+
+1. turns each INTERCONNECT into a delayed `assign #(rise, fall)` placed in front of that one sink pin of the netlist (`videl_routed_ic.v`);
+2. writes an SDF with only the IOPATH entries, names escaped (`videl_routed_ic.sdf`);
+3. picks one corner of each `(min:typ:max)` triple. The default is `max`, the setup-critical corner.
+
+A Verilog assignment delay is inertial: pulses shorter than the wire delay disappear, which matches the usual SDF pulse-rejection default.
+
+**Proof that the delays are applied:** at a 10 ns period with the lutperm-disabled build, wire delays alone gave 0 mismatches and wire plus cell delays gave 1. At 8 ns the figures were 3 and 13. Without the SDF, every period passes.
+
+### 13.7 Reading the results
+
+- `gatesim.sh` drives both clocks from one source, so a single period has to satisfy both domains. 6.734 ns (148.5 MHz) fails because of `bus_clk` paths, as static timing predicts.
+- 8 ns (125 MHz) passes, matching static timing (129 MHz).
+- Before the decode was pipelined, the SDF run passed at 10 ns (100 MHz) although static timing said `bus_clk` only reached 72 MHz. Static timing takes the slowest path for any data; the simulation only sees the data in the trace, which never toggled that path in a critical way. **Static timing (`nextpnr.log`) is the sign-off; the timed simulation is a cross-check** that the netlist, the delays and the clocking behave as the analysis claims.
+- A failure that doesn't move when the period changes is a hold problem in the test set-up (T31), not a speed limit.
+
+### 13.8 Reproducing
+
+```bash
+tools/get-fpga-tools.sh
+```
+
+```bash
+hdl/videl/sim.sh -gBUS_HALF_PS=10000 -gPIX_HALF_PS=3367
+```
+
+```bash
+hdl/videl/syn/synth.sh
+```
+
+```bash
+hdl/videl/syn/gatesim.sh 20000
+```
+
+`synth.sh` takes about 80 s and `gatesim.sh` about 40 s. Extra arguments to `synth.sh` go to nextpnr (for example `--seed 3` or `--disable-router-lutperm`). The second argument to `gatesim.sh` selects the delay corner.
+
 
 [S011]: ../../sources/INDEX.md
 [S031]: ../../sources/INDEX.md

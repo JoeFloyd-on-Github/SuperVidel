@@ -2,7 +2,13 @@
 
 A VHDL-2008 Videl emulation block for the [SV-Lite design](../../docs/design/sv-lite.md). Its mode-decode and colour rules are translated from Hatari's Videl emulation (`src/falcon/videl.c`, commit `36a8acf`) [S035]. The scope and reasoning are in [videl-compat.md](../../docs/design/videl-compat.md).
 
-**Status:** simulated only. All 9 test vectors match Hatari. The core has not been synthesized or run on hardware.
+**Status:** simulated and placed-and-routed, not run on hardware.
+
+- All 9 test vectors match Hatari, with one clock and with two unrelated clocks.
+- On the LFE5UM5G-45F it uses about 2,370 LUTs, 1,220 flip-flops and 7 block RAMs.
+- `pix_clk` meets 1080p60 (236 MHz against 148.5 MHz).
+- `bus_clk` reaches 129 MHz against a 100 MHz target, with the mode decode split into three pipeline stages; see [methodology §13.3.1](../../docs/design/videl-core-methodology.md#1331-pipelining-the-mode-decode).
+- The routed netlist matches the RTL cycle by cycle, at zero delay and with nextpnr's SDF delays.
 
 **Licence:** GPL-2.0-or-later, because it is derived from Hatari.
 
@@ -21,7 +27,10 @@ CT60 bus writes ──▶ videl_regs ──▶ videl_decode ──▶ videl_fetc
 | `rtl/videl_fetch.vhd` | Reads one source line (base + y × (LWD+LOF) × 2) through a simple request/stream memory port; converts interleaved bit-planes to chunky; applies h-scroll |
 | `rtl/videl_pixel.vhd` | Line buffer → palette → RGB24, 3-cycle latency, border colour = entry 0 |
 | `rtl/videl_core.vhd` | Top level: two clock domains (CT60 bus clock, pixel clock), palette RAM, line buffer |
-| `tb/tb_videl_core.vhd` | Self-checking testbench against the Hatari golden model |
+| `tb/tb_videl_core.vhd` | Self-checking testbench against the Hatari golden model; optional two clocks and port trace |
+| `syn/videl_synth_top.vhd` | Synthesis/timing wrapper (registered pins, `geom` folded to 8 bits) |
+| `syn/synth.sh`, `syn/videl.lpf` | GHDL → Yosys → nextpnr-ecp5: resources, static timing, SDF |
+| `syn/tb_gate.v`, `syn/gatesim.sh` | Replays the RTL trace into the pre-route and routed netlists, with or without SDF delays (Icarus) |
 
 The real Videl stays in the Falcon and answers every read. This core only latches writes, as the CT60's hardware emulation window allows [S022].
 
@@ -52,6 +61,28 @@ tools/get-ghdl.sh
 hdl/videl/sim.sh
 ```
 
+Two unrelated clocks (here a 50 MHz bus clock and a 148.5 MHz pixel clock, as integer half-periods in ps):
+
+```bash
+hdl/videl/sim.sh -gBUS_HALF_PS=10000 -gPIX_HALF_PS=3367
+```
+
+Synthesis, place and route, and gate-level timing simulation. This needs the FPGA tool sandbox (Yosys, nextpnr-ecp5, Icarus), which `tools/get-fpga-tools.sh` creates without root:
+
+```bash
+tools/get-fpga-tools.sh
+```
+
+```bash
+hdl/videl/syn/synth.sh
+```
+
+```bash
+hdl/videl/syn/gatesim.sh 20000
+```
+
+The argument to `gatesim.sh` is the clock period in ps. Results go to `hdl/videl/build/syn/` (`nextpnr.log` holds the timing report).
+
 Skip `get-ghdl.sh` if `tools/ghdl/` already exists. The full method, data formats, acceptance criteria, the GHDL sandbox and every trap hit along the way are in [docs/design/videl-core-methodology.md](../../docs/design/videl-core-methodology.md). Read it before extending the core.
 
 ## Known gaps
@@ -62,7 +93,8 @@ Skip `get-ghdl.sh` if `tools/ghdl/` already exists. The full method, data format
 - **Not handled:** `$8266` bits 3:0 (16-colour bank select, also ignored by Hatari), the overlay bit, and video-counter writes (`$8205`–`$8209`).
 - **When VDE < VDB,** Hatari keeps the previous height; the core reports 0.
 - **Cross-clock:** the geometry crosses from the bus clock to the pixel clock without synchronisers, on the assumption that it only changes during blanking.
-- **Not synthesized:** resource use and timing on the ECP5 are unknown.
+- **Bus clock:** the 100 MHz target is a stand-in; the real CT63 bus clock is **(unverified)**. A register write takes 4 `bus_clk` cycles to reach `geom`.
+- **Gate-level models:** the Ubuntu Yosys 0.52 ECP5 models needed eight fixes to simulate nextpnr 0.9 netlists (`tools/ecp5_sim_compat.py`). The `DP16KD` model covers only what this design uses.
 
 [S022]: ../../sources/INDEX.md
 [S031]: ../../sources/INDEX.md

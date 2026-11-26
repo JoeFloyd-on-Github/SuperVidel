@@ -5,3 +5,4 @@
 hdl/videl/build/
 tools/videl_ref/videl_ref
 tools/ghdl/
+tools/fpga/

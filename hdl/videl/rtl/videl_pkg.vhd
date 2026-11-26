@@ -62,8 +62,33 @@ package videl_pkg is
     drawable : boolean;                    -- Hatari skips screens < 32x32
   end record;
 
+  -- The decode in three pipeline stages (videl_core registers between
+  -- them, so the bus-clock path is one stage deep). videl_decode is their
+  -- composition, so the combined result cannot drift from the staged one.
+  type videl_dec1_t is record
+    g        : videl_geom_t;               -- bpp, xsize, lwd, nextline, hscroll, use_st, base
+    cyc      : natural range 0 to 2;       -- log2(cycles per pixel)
+    horiz    : boolean;                    -- borders shown horizontally
+    hdb_off  : natural range 0 to 1023;
+    hde_off  : natural range 0 to 1023;
+    hdb      : unsigned(9 downto 0);
+    hbe, hht : unsigned(8 downto 0);
+    hbb, hde : unsigned(8 downto 0);
+    ys, ub, lw : natural range 0 to 2047;  -- raw half-line counts
+    vmd      : std_logic_vector(1 downto 0);
+  end record;
+
+  function decode_s1(r : videl_regs_t; mon : std_logic_vector(1 downto 0);
+                     overscan : boolean) return videl_dec1_t;
+  function decode_s2(d : videl_dec1_t) return videl_geom_t;
+  function decode_s3(g : videl_geom_t) return videl_geom_t;
   function videl_decode(r : videl_regs_t; mon : std_logic_vector(1 downto 0);
                         overscan : boolean) return videl_geom_t;
+
+  -- XOR-fold of the whole geometry record into 8 bits. Not part of the
+  -- Videl model: used by syn/videl_synth_top.vhd to bring geom out on few
+  -- pins, and by the testbench trace that checks the gate-level netlist.
+  function fold_geom(g : videl_geom_t) return std_logic_vector;
 
   function st_colour(c : std_logic_vector(11 downto 0)) return std_logic_vector;
   function falcon_colour(c : std_logic_vector(31 downto 0)) return std_logic_vector;
@@ -72,6 +97,31 @@ package videl_pkg is
 end package;
 
 package body videl_pkg is
+
+  function fold_geom(g : videl_geom_t) return std_logic_vector is
+    variable v : std_logic_vector(7 downto 0) := (others => '0');
+    procedure mix(x : unsigned) is
+    begin
+      for i in x'range loop
+        v(i mod 8) := v(i mod 8) xor x(i);
+      end loop;
+    end procedure;
+  begin
+    mix(to_unsigned(g.bpp_log2, 3));
+    mix(to_unsigned(g.xsize, 12));
+    mix(to_unsigned(g.left, 10));
+    mix(to_unsigned(g.right, 10));
+    mix(to_unsigned(g.ysize, 11));
+    mix(to_unsigned(g.upper, 11));
+    mix(to_unsigned(g.lower, 11));
+    mix(to_unsigned(g.lwd, 10));
+    mix(to_unsigned(g.nextline, 11));
+    mix(to_unsigned(g.hscroll, 4));
+    mix(g.base);
+    v(0) := v(0) xor g.use_st;
+    if g.drawable then v(1) := not v(1); end if;
+    return v;
+  end function;
 
   -- x * 2**n and x / 2**n for small n, written as constant multiplies and
   -- divides so synthesis turns them into shifts.
@@ -100,20 +150,16 @@ package body videl_pkg is
     end case;
   end function;
 
-  function videl_decode(r : videl_regs_t; mon : std_logic_vector(1 downto 0);
-                        overscan : boolean) return videl_geom_t is
-    variable g       : videl_geom_t;
-    variable bl      : natural range 0 to 4;
-    variable cyc     : natural range 0 to 2;    -- log2(cycles per pixel)
-    variable dv      : natural range 0 to 4;    -- log2(divider)
-    variable vdm     : std_logic_vector(1 downto 0);
-    variable xs      : natural;
-    variable p       : integer;                 -- 128 / bpp
-    variable hdb_off : integer;
-    variable hde_off : integer;
-    variable lb, rb  : integer;
-    variable ub, lw  : integer;
-    variable ys      : integer;
+  -- Stage 1: mode bits, X size, border offsets, raw vertical differences.
+  function decode_s1(r : videl_regs_t; mon : std_logic_vector(1 downto 0);
+                     overscan : boolean) return videl_dec1_t is
+    variable d   : videl_dec1_t;
+    variable bl  : natural range 0 to 4;
+    variable cyc : natural range 0 to 2;
+    variable dv  : natural range 0 to 4;    -- log2(divider)
+    variable vdm : std_logic_vector(1 downto 0);
+    variable xs  : natural;
+    variable p   : integer;                 -- 128 / bpp
   begin
     -- VIDEL_getScreenBpp: SPSHIFT bits 10 > 8 > 4, else ST shifter.
     if r.spshift(10) = '1' then bl := 0;
@@ -124,7 +170,7 @@ package body videl_pkg is
     elsif r.st_shift = 1 then bl := 1;
     else bl := 0;
     end if;
-    g.bpp_log2 := bl;
+    d.g.bpp_log2 := bl;
 
     -- Videl_GetPixelCyclesAndDivider
     vdm := r.vmd(3 downto 2);
@@ -136,70 +182,101 @@ package body videl_pkg is
     else
       dv := cyc;
     end if;
+    d.cyc := cyc;
 
     -- X size = LWD * 16 / bpp, halved while above 2048
     xs := shl(to_integer(r.lwd), 4 - bl);
     for i in 1 to 3 loop
       if xs > 2048 then xs := xs / 2; end if;
     end loop;
-    g.xsize := xs;
+    d.g.xsize := xs;
 
-    -- Horizontal borders (VIDEL_getScreenWidth)
-    if (not overscan) or mon = MON_MONO then
-      g.left := 0; g.right := 0;
-    else
-      p := shl(1, 7 - bl);
-      if r.use_st = '0' then
-        if bl < 4 then
-          hdb_off := shr(64 + shl(p + 18, cyc), dv) + 1;
-          hde_off := shr(shl(p + 2, cyc), dv);
-        else
-          hdb_off := shr(64 + shl(16, cyc), dv) + 1;
-          hde_off := 0;
-        end if;
+    -- Horizontal border offsets (VIDEL_getScreenWidth)
+    d.horiz := overscan and mon /= MON_MONO;
+    p := shl(1, 7 - bl);
+    if r.use_st = '0' then
+      if bl < 4 then
+        d.hdb_off := shr(64 + shl(p + 18, cyc), dv) + 1;
+        d.hde_off := shr(shl(p + 2, cyc), dv);
       else
-        hdb_off := shr(128 + shl(p + 2, cyc), dv) + 1;
-        hde_off := shr(shl(p + 2, cyc), dv);
+        d.hdb_off := shr(64 + shl(16, cyc), dv) + 1;
+        d.hde_off := 0;
       end if;
-      lb := to_integer(r.hdb(8 downto 0)) - to_integer(r.hbe) + hdb_off;
-      if r.hdb(9) = '1' then
-        lb := lb - to_integer(r.hht) - 2;
-      end if;
-      rb := to_integer(r.hbb) - hde_off - to_integer(r.hde);
-      -- C truncates toward zero, then negative sizes are clamped to 0.
-      if lb > 0 then g.left := shr(lb, cyc); else g.left := 0; end if;
-      if rb > 0 then g.right := shr(rb, cyc); else g.right := 0; end if;
+    else
+      d.hdb_off := shr(128 + shl(p + 2, cyc), dv) + 1;
+      d.hde_off := shr(shl(p + 2, cyc), dv);
     end if;
+    d.hdb := r.hdb; d.hbe := r.hbe; d.hht := r.hht;
+    d.hbb := r.hbb; d.hde := r.hde;
 
     -- Vertical (VIDEL_getScreenHeight); units are half-lines
     if mon = MON_MONO or not overscan then
-      ub := 0; lw := 0;
+      d.ub := 0; d.lw := 0;
     else
-      ub := to_integer(r.vdb) - to_integer(r.vbe);
-      lw := to_integer(r.vbb) - to_integer(r.vde);
-      if ub < 0 then ub := 0; end if;
-      if lw < 0 then lw := 0; end if;
+      if r.vdb > r.vbe then d.ub := to_integer(r.vdb - r.vbe); else d.ub := 0; end if;
+      if r.vbb > r.vde then d.lw := to_integer(r.vbb - r.vde); else d.lw := 0; end if;
     end if;
     if r.vde >= r.vdb then
-      ys := to_integer(r.vde) - to_integer(r.vdb);
+      d.ys := to_integer(r.vde - r.vdb);
     else
-      ys := 0;   -- Hatari keeps the previous value here
+      d.ys := 0;   -- Hatari keeps the previous value here
     end if;
-    if r.vmd(1) = '0' then          -- not set: interlace / half-line units
+    d.vmd := r.vmd(1 downto 0);
+
+    d.g.lwd      := to_integer(r.lwd);
+    d.g.nextline := to_integer(r.lwd) + to_integer(r.lof);
+    d.g.hscroll  := to_integer(r.hscroll);
+    d.g.use_st   := r.use_st;
+    d.g.base     := r.vbase;
+    d.g.left := 0; d.g.right := 0;
+    d.g.ysize := 0; d.g.upper := 0; d.g.lower := 0;
+    d.g.drawable := false;
+    return d;
+  end function;
+
+  -- Stage 2: border widths and vertical sizes.
+  function decode_s2(d : videl_dec1_t) return videl_geom_t is
+    variable g      : videl_geom_t := d.g;
+    variable lb, rb : integer;
+    variable ys, ub, lw : natural range 0 to 2047;
+  begin
+    if d.horiz then
+      lb := to_integer(d.hdb(8 downto 0)) - to_integer(d.hbe) + d.hdb_off;
+      if d.hdb(9) = '1' then
+        lb := lb - to_integer(d.hht) - 2;
+      end if;
+      rb := to_integer(d.hbb) - d.hde_off - to_integer(d.hde);
+      -- C truncates toward zero, then negative sizes are clamped to 0.
+      if lb > 0 then g.left := shr(lb, d.cyc); else g.left := 0; end if;
+      if rb > 0 then g.right := shr(rb, d.cyc); else g.right := 0; end if;
+    else
+      g.left := 0; g.right := 0;
+    end if;
+
+    ys := d.ys; ub := d.ub; lw := d.lw;
+    if d.vmd(1) = '0' then          -- not set: interlace / half-line units
       ys := ys / 2; ub := ub / 2; lw := lw / 2;
     end if;
-    if r.vmd(0) = '1' then          -- line doubling
+    if d.vmd(0) = '1' then          -- line doubling
       ys := ys / 2; ub := ub / 2; lw := lw / 2;
     end if;
     g.ysize := ys; g.upper := ub; g.lower := lw;
-
-    g.lwd      := to_integer(r.lwd);
-    g.nextline := to_integer(r.lwd) + to_integer(r.lof);
-    g.hscroll  := to_integer(r.hscroll);
-    g.use_st   := r.use_st;
-    g.base     := r.vbase;
-    g.drawable := (g.left + g.xsize + g.right >= 32) and (ub + ys + lw >= 32);
     return g;
+  end function;
+
+  -- Stage 3: Hatari skips screens smaller than 32 x 32.
+  function decode_s3(g : videl_geom_t) return videl_geom_t is
+    variable r : videl_geom_t := g;
+  begin
+    r.drawable := (g.left + g.xsize + g.right >= 32) and
+                  (g.upper + g.ysize + g.lower >= 32);
+    return r;
+  end function;
+
+  function videl_decode(r : videl_regs_t; mon : std_logic_vector(1 downto 0);
+                        overscan : boolean) return videl_geom_t is
+  begin
+    return decode_s3(decode_s2(decode_s1(r, mon, overscan)));
   end function;
 
   -- STE 12-bit colour: each nibble is (bit3 = LSB, bits 2:0 = upper bits).

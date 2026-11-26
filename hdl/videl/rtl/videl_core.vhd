@@ -60,6 +60,8 @@ end entity;
 
 architecture rtl of videl_core is
   signal regs     : videl_regs_t;
+  signal d1       : videl_dec1_t;
+  signal d2       : videl_geom_t;
   signal g        : videl_geom_t;
   signal pal_we   : std_logic_vector(3 downto 0);
   signal pal_wa   : unsigned(7 downto 0);
@@ -83,10 +85,16 @@ begin
               addr => addr, be => be, wdata => wdata, regs => regs,
               pal_we => pal_we, pal_addr => pal_wa, pal_data => pal_wd);
 
+  -- Mode decode, pipelined: register shadow -> s1 -> s2 -> g (3 bus_clk
+  -- cycles from a register write to the new geometry). The geometry only
+  -- changes on register writes, so the latency costs nothing; in one cycle
+  -- the decode limited bus_clk to about 72 MHz on the ECP5.
   process (bus_clk)
   begin
     if rising_edge(bus_clk) then
-      g <= videl_decode(regs, monitor, OVERSCAN);
+      d1 <= decode_s1(regs, monitor, OVERSCAN);
+      d2 <= decode_s2(d1);
+      g  <= decode_s3(d2);
     end if;
   end process;
   geom <= g;
